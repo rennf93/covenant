@@ -1,0 +1,21 @@
+{
+  "name": "@proven/indexer",
+  "version": "0.1.0",
+  "description": "Event-sourced indexer and JSON API for the Proven protocol",
+  "type": "module",
+  "main": "./src/main.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run build && node --test \"dist/test/*.test.js\"",
+    "start": "tsx src/main.ts 2>/dev/null || node --experimental-strip-types src/main.ts"
+  },
+  "dependencies": {
+    "viem": "^2.21.0",
+    "@proven/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^24.0.0"
+  }
+}

@@ -1,0 +1,80 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { ProvenState, StrategyView } from "./state.js";
+
+/**
+ * JSON API over indexed state.
+ *   GET /health               -> liveness + last indexed block
+ *   GET /strategies           -> leaderboard rows, best return first
+ *   GET /strategies/:id       -> full strategy with epochs
+ *
+ * No framework: the surface is small, typed, and dependency-free.
+ */
+
+export function jsonResponse(res: ServerResponse, status: number, body: unknown): void {
+  const payload = JSON.stringify(body, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value instanceof Map ? Object.fromEntries(value) : value,
+  );
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(payload);
+}
+
+function leaderboardRow(s: StrategyView) {
+  return {
+    id: s.id.toString(),
+    owner: s.owner,
+    name: s.name,
+    status: s.status,
+    bond: s.bond.toString(),
+    derived: {
+      ...s.derived,
+      equity: s.derived.equity.toString(),
+      cumulativePnl: s.derived.cumulativePnl.toString(),
+      returnWad: s.derived.returnWad?.toString() ?? null,
+    },
+    finalizedEpochs: s.derived.finalizedEpochs,
+    totalEpochs: s.epochs.size,
+  };
+}
+
+export function startApi(state: ProvenState, port: number): Server {
+  return createServer((req: IncomingMessage, res: ServerResponse) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/health") {
+      jsonResponse(res, 200, { ok: true, lastBlock: state.lastBlock.toString() });
+      return;
+    }
+    if (url.pathname === "/strategies" && req.method === "GET") {
+      const rows = [...state.strategies.values()]
+        .sort((a, b) => {
+          const ra = a.derived.returnWad ?? -(2n ** 255n);
+          const rb = b.derived.returnWad ?? -(2n ** 255n);
+          return rb > ra ? 1 : rb < ra ? -1 : 0;
+        })
+        .map(leaderboardRow);
+      jsonResponse(res, 200, { rows });
+      return;
+    }
+    const match = /^\/strategies\/(\d+)$/.exec(url.pathname);
+    if (match) {
+      const strategy = state.strategies.get(match[1]!);
+      if (!strategy) {
+        jsonResponse(res, 404, { error: "unknown strategy" });
+        return;
+      }
+      jsonResponse(res, 200, {
+        ...leaderboardRow(strategy),
+        epochs: [...strategy.epochs.values()]
+          .sort((a, b) => (a.epochIndex < b.epochIndex ? -1 : 1))
+          .map((e) => ({
+            ...e,
+            epochIndex: e.epochIndex.toString(),
+            equity: e.equity?.toString() ?? null,
+            netFlow: e.netFlow?.toString() ?? null,
+            pnl: e.pnl?.toString() ?? null,
+          })),
+      });
+      return;
+    }
+    jsonResponse(res, 404, { error: "not found" });
+  }).listen(port);
+}
