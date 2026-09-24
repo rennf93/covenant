@@ -1,8 +1,24 @@
 # HANDOFF: Proven x jev-trading (Arbitrum Open House Singapore Buildathon)
 
-Written 2026-09-25. Read this before touching anything. The next session's job
-is the jev-trading fork and its integration into this platform. Everything else
-is built and green.
+Written 2026-09-25. Read this before touching anything.
+
+**STATUS UPDATE (same day): the fork is DONE and lives in this repo at
+`operator/`.** The jev copy was moved INTO the proven repo (per the user; one
+submission repo) at `operator/` with the package renamed only in product terms:
+run scripts at `operator/run_*.py`, package `operator/jev/`, attestation at
+`operator/attest/` (pure-python keccak + canonical receipts + merkle, all
+fixture-conformed to the SDK, 10 tests green: `cd operator && python3 -m
+unittest discover -s tests`). Dual venue is in `operator/jev/execution.py`
+(paper / coinbase / arb-paper; arb-paper is the honest "Arbitrum DEX paper
+venue" priced from the live feed, booking venue class ArbitrumDex). Shadow
+wiring is done: `run_shadow.py --attest` (or PROVEN_ATTEST=1) records receipts
+per fill, closes an epoch at each System-2 boundary (epoch 0 netFlow carries
+the seed capital), and writes evidence bundles; chain commits fire only when
+PROVEN_RPC_URL/PRIVATE_KEY/CONTRACT_ADDRESS are all set (ledger-only mode
+otherwise). The node bridge is `operator/attest/bridge.mjs` (viem resolved via
+the sdk package; actions register/commit/finalize/verify). REMAINING: funded
+Arbitrum Sepolia key -> deploy (section "Deployment"), register the strategy,
+then the onchain demo run. Original jev-trading repo was never touched.
 
 ---
 

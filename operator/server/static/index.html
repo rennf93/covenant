@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jev dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2129; --border: #2d333b;
+    --text: #e6edf3; --dim: #8b949e; --accent: #4493f8; --green: #3fb950;
+    --red: #f85149; --yellow: #d29922; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+           border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .live { color: var(--dim); font-size: 12px; }
+  header .spacer { flex: 1; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #1f4479; border-color: #2f6bbf; }
+  button.danger { background: #5c1a1a; border-color: #a33; }
+  button:disabled { opacity: .45; cursor: default; }
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+                  border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; }
+  label { display: block; color: var(--dim); font-size: 11px; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .04em; }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px 20px; max-width: 1500px; margin: 0 auto; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+  .stack > * + * { margin-top: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); display: inline-block; }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.err { background: var(--red); }
+  .mode-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--dim); }
+  pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+        padding: 8px 10px; font: 11.5px/1.5 var(--mono); overflow: auto; max-height: 220px; margin: 8px 0 0; }
+  table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+  th { text-align: left; color: var(--dim); font-weight: 500; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .pos { color: var(--green); } .neg { color: var(--red); } .dimtext { color: var(--dim); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .sess { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+  .sess:hover { background: var(--panel2); }
+  .sess.sel { background: #1f2a3d; }
+  .sess .name { font: 12px var(--mono); flex: 1; }
+  .sess .meta { color: var(--dim); font-size: 11px; }
+  .banner { padding: 8px 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 12px;
+            border: 1px solid var(--border); background: var(--panel); color: var(--dim); }
+  .banner.warn { border-color: #7a5c11; background: #2b230d; color: #e3b341; }
+  .kv { font: 12px var(--mono); color: var(--dim); }
+  .kv b { color: var(--text); font-weight: 500; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+              align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 10; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+           width: 560px; max-width: 100%; max-height: 85vh; overflow: auto; padding: 18px; }
+  .modal h3 { margin: 0 0 8px; font-size: 15px; }
+  .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 5px 0; font-size: 12px; }
+  .tabs button.on { border-color: var(--accent); color: var(--accent); }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+           background: var(--panel2); border: 1px solid var(--border); padding: 8px 16px;
+           border-radius: 8px; font-size: 13px; display: none; z-index: 20; }
+</style>
+</head>
+<body>
+<header>
+  <h1>jev</h1><span class="live" id="clock"></span>
+  <span class="spacer"></span>
+  <span class="kv" id="headfee"></span>
+  <button onclick="openSettings()">Settings</button>
+</header>
+<main>
+  <div class="stack">
+    <div class="panel">
+      <h2>Launch</h2>
+      <div class="tabs" id="modetabs"></div>
+      <div id="paramfields"></div>
+      <label>venue</label>
+      <select id="venue"></select>
+      <div class="kv" id="venuedocs" style="margin-top:4px"></div>
+      <div style="margin-top:12px"><button class="primary" style="width:100%" onclick="startRun()" id="startbtn">Start</button></div>
+    </div>
+    <div class="panel">
+      <h2>Sessions</h2>
+      <div id="sessions"><div class="dimtext">loading...</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div id="realbanner"></div>
+    <h2 style="font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:2px 0 8px">Active runs</h2>
+    <div id="activeruns"><div class="banner">nothing running. Launch something on the left.</div></div>
+    <h2 style="font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Inspector <span class="dimtext" id="inspname"></span></h2>
+    <div id="inspector"><div class="banner">select a session to inspect it</div></div>
+  </div>
+</main>
+
+<div class="modal-bg" id="settingsbg">
+  <div class="modal">
+    <h3>Settings</h3>
+    <div class="dimtext" style="font-size:12px;margin-bottom:6px">
+      Rails (hard code limits) are shown per field; System-2 and the UI cannot save values outside them.
+    </div>
+    <div class="grid2" id="rulefields"></div>
+    <div class="grid2" style="margin-top:10px">
+      <div><label>fee bps per side</label><input id="cfg_fee" type="number"></div>
+      <div><label>product</label><input id="cfg_product"></div>
+    </div>
+    <h3 style="margin-top:16px;font-size:13px">System-1 provider (the decision head)</h3>
+    <label>provider</label>
+    <select id="r_s1_provider" onchange="renderS1Hint()">
+      <option value="local">Local laya library (in-process, slow cold start)</option>
+      <option value="server">Laya server (URL)</option>
+      <option value="openrouter">OpenRouter (API key)</option>
+    </select>
+    <div class="grid2">
+      <div><label>laya server url</label><input id="r_s1_url" placeholder="http://127.0.0.1:9989"></div>
+      <div><label>api key (server bearer / openrouter)</label><input id="r_s1_api_key" type="password" placeholder="stored locally in out/ui/config.json"></div>
+    </div>
+    <label>model id (openrouter only, e.g. openai/gpt-4o-mini)</label>
+    <input id="r_s1_model">
+    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+      <button onclick="probeS1()">Check server health</button>
+      <span class="kv" id="s1health"></span>
+    </div>
+    <div class="dimtext" style="font-size:11.5px;margin-top:4px" id="s1hint"></div>
+    <h3 style="margin-top:16px;font-size:13px">System-2 rewriter (rule tuner)</h3>
+    <div class="grid2">
+      <div><label>base url (openai-compatible; empty = heuristic fallback)</label><input id="r_s2_base_url" placeholder="http://127.0.0.1:9998/v1"></div>
+      <div><label>model</label><input id="r_s2_model" placeholder="qwen3.8-27b"></div>
+    </div>
+    <label>api key</label><input id="r_s2_api_key" type="password">
+    <h3 style="margin-top:16px;font-size:13px">Run defaults</h3>
+    <div id="defaultfields" class="grid2"></div>
+    <div class="row">
+      <button onclick="closeSettings()">Cancel</button>
+      <button class="primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+let state = null, selMode = "shadow", selSession = null, timers = {};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cls = n => n >= 0 ? "pos" : "neg";
+const pct = n => (n >= 0 ? "+" : "") + n.toFixed(3) + "%";
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(timers.toast); timers.toast = setTimeout(() => t.style.display = "none", 3500); }
+
+async function api(path, opts) {
+  const r = await fetch(path, opts ? {headers: {"Content-Type": "application/json"}, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined} : undefined);
+  if (!r.ok) { const e = await r.json().catch(() => ({detail: r.statusText})); throw new Error(e.detail || r.statusText); }
+  return r.json();
+}
+
+/* ---------- launch panel ---------- */
+const MODES = {
+  sim:      ["ticks", "epoch", "seed", "cash"],
+  shadow:   ["minutes", "interval", "epoch_minutes", "cash"],
+  backtest: ["minutes", "epoch_len", "cash"],
+  real:     ["minutes", "interval", "epoch_minutes", "max_usd"],
+};
+const MODE_LABEL = {sim: "Sim", shadow: "Shadow", backtest: "Backtest", real: "Real $"};
+const BOOLS = {shadow: [["websocket", "use websocket feed"]], backtest: [["s2", "System-2 rewrites"]]};
+
+function renderModeTabs() {
+  $("modetabs").innerHTML = Object.keys(MODES).map(m =>
+    `<button class="${m === selMode ? "on" : ""}" onclick="pickMode('${m}')">${MODE_LABEL[m]}</button>`).join("");
+}
+function pickMode(m) { selMode = m; renderModeTabs(); renderParams(); }
+
+function renderParams() {
+  const d = state.config.defaults[selMode] || {};
+  $("paramfields").innerHTML = MODES[selMode].map(k =>
+    `<label>${k.replace(/_/g, " ")}</label><input id="p_${k}" type="number" step="any" value="${d[k] ?? ""}">`).join("")
+    + (BOOLS[selMode] || []).map(([k, lbl]) =>
+    `<label style="text-transform:none;letter-spacing:0"><input type="checkbox" id="p_${k}" ${d[k] ?? true ? "checked" : ""} style="width:auto"> ${lbl}</label>`).join("");
+}
+
+async function startRun() {
+  const params = {};
+  MODES[selMode].forEach(k => { const v = $("p_" + k).value; if (v !== "") params[k] = parseFloat(v) || parseInt(v) || v; });
+  (BOOLS[selMode] || []).forEach(([k]) => params[k] = $("p_" + k).checked);
+  params.venue = $("venue").value;
+  if (selMode === "real" && !confirm("This places REAL orders with REAL money. Continue?")) return;
+  try {
+    const res = await api("/api/runs", {method: "POST", body: {mode: selMode, params, confirm_real: selMode === "real"}});
+    toast("started " + res.id); refresh();
+  } catch (e) { toast("ERROR: " + e.message); }
+}
+
+/* ---------- active runs ---------- */
+function renderRuns() {
+  const runs = state.active;
+  if (!runs.length) { $("activeruns").innerHTML = '<div class="banner">nothing running. Launch something on the left.</div>'; return; }
+  $("activeruns").innerHTML = runs.map(r => `
+    <div class="card">
+      <div class="head">
+        <span class="dot ${r.running ? "on" : (r.exit_code ? "err" : "")}"></span>
+        <b style="font:13px var(--mono)">${esc(r.id)}</b>
+        <span class="mode-tag">${esc(r.mode)}</span>
+        <span class="dimtext" style="font-size:12px">${r.running ? r.uptime_s + "s" : "exit " + r.exit_code}</span>
+        <span class="spacer" style="flex:1"></span>
+        <button onclick="doStop('${r.id}')">Stop</button>
+        <button onclick="doRestart('${r.id}')">Restart</button>
+      </div>
+      <pre>${esc((r.console_tail || []).join("\n")) || '<span class="dimtext">no output yet</span>'}</pre>
+    </div>`).join("");
+}
+async function doStop(id) { try { await api(`/api/runs/${id}/stop`, {method: "POST"}); toast("stopped " + id); refresh(); } catch (e) { toast(e.message); } }
+async function doRestart(id) { try { await api(`/api/runs/${id}/restart`, {method: "POST"}); toast("restarted " + id); refresh(); } catch (e) { toast(e.message); } }
+
+/* ---------- sessions + inspector ---------- */
+function renderSessions() {
+  $("sessions").innerHTML = state.sessions.map(s => `
+    <div class="sess ${s.id === selSession ? "sel" : ""}" onclick="inspect('${s.id}')">
+      <span class="dot ${s.summary && s.summary.halted ? "err" : ""}"></span>
+      <span class="name">${esc(s.id)}</span>
+      <span class="meta">${s.summary ? (s.summary.return_pct !== undefined ? pct(s.summary.return_pct) : "") : ""}</span>
+    </div>`).join("") || '<div class="dimtext">no sessions yet</div>';
+}
+
+async function inspect(id) {
+  selSession = id;
+  renderSessions();
+  clearInterval(timers.insp);
+  await loadSession();
+  timers.insp = setInterval(loadSession, 5000);
+}
+
+async function loadSession() {
+  if (!selSession) return;
+  let s;
+  try { s = await api(`/api/sessions/${selSession}?limit=40`); } catch { return; }
+  $("inspname").textContent = "(" + s.id + ")";
+  let html = "";
+  if (s.summary) {
+    const m = s.summary;
+    html += `<div class="card"><div class="grid2">
+      <div class="kv">return <b class="${cls(m.return_pct || 0)}">${pct(m.return_pct || 0)}</b></div>
+      <div class="kv">trades <b>${m.closed_trades ?? "-"}</b></div>
+      <div class="kv">equity <b>${m.final_equity ?? "-"}</b></div>
+      <div class="kv">halted <b class="${m.halted ? "neg" : "pos"}">${m.halted ? "YES: " + esc(m.halt_reason || "") : "no"}</b></div>
+    </div></div>`;
+  }
+  if (s.decisions.length) {
+    html += `<div class="card"><h2>Decisions (last ${s.decisions.length})</h2><table><tr>
+      <th>time</th><th>price</th><th>mode</th><th>action</th><th>conv</th><th>P(flat)</th><th>veto / acted</th><th>equity</th></tr>` +
+    s.decisions.slice().reverse().map(d => {
+      const dec = d.decision || {};
+      const pf = dec.probs ? dec.probs.flat : null;
+      return `<tr><td class="dimtext">${(d.ts || "").slice(11, 19)}</td><td>${d.price ?? ""}</td>
+        <td>${dec.mode || "entry"}</td><td>${esc(dec.final_action || "")}</td>
+        <td>${dec.conviction ?? ""}</td><td>${pf != null ? pf.toFixed(3) : ""}</td>
+        <td class="dimtext">${esc(d.acted || dec.veto || "")}</td><td>${d.equity ?? ""}</td></tr>`;
+    }).join("") + "</table></div>";
+  }
+  if (s.trades.length) {
+    html += `<div class="card"><h2>Trades</h2><table><tr><th>tick</th><th>action</th><th>price</th><th>pnl</th><th>reason</th></tr>` +
+      s.trades.slice().reverse().map(t => `<tr><td>${t.tick ?? ""}</td><td>${esc(t.action || "")}</td><td>${t.price ?? ""}</td>
+      <td class="${cls(t.pnl_usd ?? 0)}">${t.pnl_usd ?? ""}</td><td>${esc(t.reason || "")}</td></tr>`).join("") + "</table></div>";
+  }
+  if (s.s2.length) {
+    html += `<div class="card"><h2>System-2 rewrites</h2><table><tr><th>time</th><th>backend</th><th>applied</th><th>rejected</th></tr>` +
+      s.s2.slice().reverse().map(r => `<tr><td class="dimtext">${(r.ts || r.tick || "").toString().slice(0, 19)}</td>
+      <td>${esc((r.s2.backend || "").slice(0, 40))}</td><td>${esc(JSON.stringify(r.s2.applied))}</td>
+      <td class="dimtext">${esc(r.s2.rejected ? JSON.stringify(r.s2.rejected.why || r.s2.rejected) : "")}</td></tr>`).join("") + "</table></div>";
+  }
+  if (s.console && s.console.length) html += `<div class="card"><h2>Console</h2><pre>${esc(s.console.join("\n"))}</pre></div>`;
+  $("inspector").innerHTML = html || '<div class="banner">no data yet for this session</div>';
+}
+
+/* ---------- settings ---------- */
+function openSettings() {
+  const cfg = state.config;
+  $("rulefields").innerHTML = Object.keys(cfg.rules).map(k => {
+    const rail = state.rails[k];
+    const railtxt = rail ? ` (${rail[0]} .. ${rail[1]})` : "";
+    const isBool = typeof cfg.rules[k] === "boolean" || Array.isArray(cfg.rules[k]);
+    return `<label>${k}${railtxt}</label><input id="r_${k}" value="${isBool ? esc(JSON.stringify(cfg.rules[k])) : esc(String(cfg.rules[k]))}">`;
+  }).join("");
+  $("cfg_fee").value = cfg.fee_bps; $("cfg_product").value = cfg.product;
+  $("r_s1_provider").value = cfg.s1.provider;
+  $("r_s1_url").value = cfg.s1.url; $("r_s1_model").value = cfg.s1.model;
+  $("r_s1_api_key").value = cfg.s1.api_key;
+  $("r_s2_base_url").value = cfg.s2.base_url; $("r_s2_model").value = cfg.s2.model;
+  $("r_s2_api_key").value = cfg.s2.api_key;
+  renderS1Hint();
+  $("defaultfields").innerHTML = Object.entries(cfg.defaults).flatMap(([mode, d]) =>
+    Object.entries(d).map(([k, v]) =>
+      `<label>${mode}.${k.replace(/_/g, " ")}</label><input id="d_${mode}_${k}" type="${typeof v === "number" ? "number" : "text"}" step="any" value="${v}">`)).join("");
+  $("settingsbg").classList.add("open");
+}
+function renderS1Hint() {
+  const hints = {
+    local: "Loads the laya checkpoint in-process. Slowest cold start (~15s), no network needed.",
+    server: "Uses a running laya server (laya.serve) over /v1/systemone. A cold server can take a while on its first predict - that is normal, later calls are fast.",
+    openrouter: "Sends the typed questions to an OpenAI-compatible endpoint via OpenRouter. Needs the api key + model id. Reply JSON is parsed into the same answer shape, so rails/logging/analysis all work unchanged.",
+  };
+  $("s1hint").textContent = hints[$("r_s1_provider").value] || "";
+}
+async function probeS1() {
+  $("s1health").textContent = "checking...";
+  try {
+    // save current s1 fields first so the probe reflects what you typed
+    const s1 = {provider: $("r_s1_provider").value, url: $("r_s1_url").value,
+                model: $("r_s1_model").value, api_key: $("r_s1_api_key").value};
+    await api("/api/config", {method: "PUT", body: {config: {s1}}});
+    const h = await api("/api/s1/health");
+    $("s1health").innerHTML = h.probe && h.probe.status === "ok"
+      ? `<b class="pos">up</b> adapters: ${esc(JSON.stringify(h.probe.loaded))}`
+      : `<b class="neg">${esc(JSON.stringify(h.probe))}</b>`;
+  } catch (e) { $("s1health").innerHTML = `<b class="neg">${esc(e.message)}</b>`; }
+}
+function closeSettings() { $("settingsbg").classList.remove("open"); }
+async function saveSettings() {
+  const cfg = {rules: {}, defaults: {}, s1: {}, s2: {}};
+  Object.keys(state.config.rules).forEach(k => {
+    let v = $("r_" + k).value;
+    try { v = JSON.parse(v); } catch {}
+    if (typeof v === "string" && !isNaN(parseFloat(v)) && k !== "product") v = parseFloat(v);
+    cfg.rules[k] = v;
+  });
+  Object.entries(state.config.defaults).forEach(([mode, d]) => { cfg.defaults[mode] = {};
+    Object.keys(d).forEach(k => { let v = $("d_" + mode + "_" + k).value;
+      if (v === "true" || v === "on") v = true; if (v === "false" || v === "") v = false;
+      cfg.defaults[mode][k] = isNaN(parseFloat(v)) || typeof d[k] === "string" ? v : parseFloat(v); }); });
+  cfg.fee_bps = parseFloat($("cfg_fee").value); cfg.product = $("cfg_product").value;
+  cfg.s1 = {provider: $("r_s1_provider").value, url: $("r_s1_url").value.trim(),
+            model: $("r_s1_model").value.trim(), api_key: $("r_s1_api_key").value};
+  cfg.s2 = {base_url: $("r_s2_base_url").value.trim(), model: $("r_s2_model").value.trim(),
+            api_key: $("r_s2_api_key").value};
+  try { await api("/api/config", {method: "PUT", body: {config: cfg}}); toast("saved"); closeSettings(); refresh(); }
+  catch (e) { toast("ERROR: " + e.message); }
+}
+
+/* ---------- main loop ---------- */
+function renderVenues() {
+  $("venue").innerHTML = state.venues.map(v =>
+    `<option value="${v.id}" ${state.config.venue === v.id ? "selected" : ""}>${esc(v.label)}${v.configured || !v.live ? "" : " (keys missing)"}</option>`).join("");
+  const v = state.venues.find(x => x.id === $("venue").value);
+  if (v) $("venuedocs").textContent = v.docs + (v.live && !v.configured ? " MISSING: " + v.missing_env.join(", ") : "");
+  $("realbanner").innerHTML = state.real_mode_allowed ? "" :
+    `<div class="banner warn">Real-money runs are blocked from this UI by default (by design). Start run_real.py by hand,
+     or set JEV_UI_ALLOW_REAL=1 in the server environment if you know what that means.</div>`;
+}
+
+async function refresh() {
+  try { state = await api("/api/overview"); } catch { return; }
+  $("clock").textContent = "updated " + new Date().toLocaleTimeString();
+  $("headfee").textContent = `fee ${state.config.fee_bps} bps/side | venue ${state.config.venue}`;
+  renderVenues(); renderParams(); renderRuns(); renderSessions();
+  if ($("settingsbg").classList.contains("open")) { /* leave settings alone while open */ }
+  if (selSession && !$("inspname").textContent) loadSession();
+}
+
+renderModeTabs();
+refresh();
+setInterval(refresh, 4000);
+setInterval(() => { if (selSession) loadSession(); }, 5000);
+</script>
+</body>
+</html>
