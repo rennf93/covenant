@@ -129,3 +129,22 @@ receipt = keccak256(abi.encode(
   attestation module wired to SDK; leaderboard with live strategy.
 - W3: receipt verification UI, hardening, demo video, docs, USDG integration polish,
   deploy to Arbitrum One if fees permit, submission.
+
+## 9. jev adapter spec (pending fork)
+
+Once the jev-trading fork lands (renamed, dual venue), the attestation module is:
+
+- `attest/ledger.py` - append-only JSONL of canonical receipts per epoch
+  (venue, venue_order_id, instrument, side, size, price, fee, filled_at).
+  Written in the same transaction context as fill handling; crash-safe.
+- `attest/commit.py` - at epoch close: build EpochBuilder, compute equity in
+  USDG terms (venue balances converted at the epoch's closing mark), call
+  commitEpoch via the SDK operator client, publish the evidence bundle
+  (receipts + proofs) to evidence_uri, verify one receipt back onchain as a
+  self-audit.
+- Venue normalization: Coinbase fills (SOL-USD, 8dp) and Arbitrum DEX fills
+  (SOL/USDC, onchain decimals) both map to canonical receipts with
+  venueOrderIdHash = keccak(venue order id), instrumentHash = keccak(instrument).
+- Real mode interlock: attestation writes are allowed in shadow AND real mode,
+  but the USDG onchain commit only fires in real mode or when explicitly
+  enabled, mirroring jev's existing safety rails.
