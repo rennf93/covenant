@@ -1,0 +1,8 @@
+{
+  "name": "proven-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r --workspace-concurrency=1 run build",
+    "test": "pnpm -r --workspace-concurrency=1 run test"
+  }
+}
