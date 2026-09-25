@@ -14,6 +14,7 @@
   --surface-hover: #17171a;
 
   /* text */
+  --text-0: #f4f4f5;    /* zinc-100, display type only */
   --text: #e4e4e7;      /* zinc-200, primary */
   --text-2: #a1a1aa;    /* zinc-400, secondary */
   --text-3: #71717a;    /* zinc-500, muted */
@@ -51,6 +52,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+::selection {
+  background: rgba(63, 206, 143, 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid var(--pos-border);
+  outline-offset: 2px;
+}
+
 main {
   max-width: 1120px;
   margin: 0 auto;
@@ -59,6 +69,7 @@ main {
 
 a {
   color: inherit;
+  transition: color 150ms ease;
 }
 
 code {
@@ -125,7 +136,8 @@ code {
 .protocol-strip {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -149,7 +161,7 @@ code {
   background: var(--neg);
 }
 
-/* ---------- headings and copy ---------- */
+/* ---------- display type and copy ---------- */
 
 h1 {
   font-size: 22px;
@@ -158,15 +170,51 @@ h1 {
   margin: 0;
 }
 
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-3);
+  margin: 0 0 1.25rem;
+}
+
+.display {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  color: var(--text-0);
+  margin: 0;
+}
+
+.display-hero {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--text-0);
+  margin: 0;
+}
+
+.display-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
 .page-head {
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 .lede {
   color: var(--text-2);
-  font-size: 13px;
-  margin: 0.5rem 0 0;
-  max-width: 46rem;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 1.25rem 0 0;
+  max-width: 60ch;
 }
 
 h2 {
@@ -180,6 +228,7 @@ h2 {
 }
 
 .sub {
+  display: block;
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -189,13 +238,24 @@ h2 {
 
 /* ---------- tables ---------- */
 
+.table-scroll {
+  margin-top: 1.25rem;
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 0;
-  margin-top: 1.25rem;
+  margin-top: 0;
+}
+
+@media (min-width: 769px) {
+  table {
+    min-width: 780px;
+  }
 }
 
 th {
@@ -225,6 +285,23 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+tbody tr {
+  transition: background-color 150ms ease;
+  animation: row-in 360ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--row-i, 0) * 45ms);
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 tbody tr:hover {
   background: var(--surface-hover);
 }
@@ -237,6 +314,11 @@ td.num {
 td.num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+.cell-main {
+  display: block;
+  min-width: 0;
 }
 
 /* semantic left borders on epoch rows */
@@ -261,6 +343,7 @@ tr.row-bad td:first-child {
   letter-spacing: 0.02em;
   color: var(--text-2);
   white-space: nowrap;
+  transition: border-color 150ms ease, color 150ms ease;
 }
 
 .badge.ok {
@@ -319,36 +402,74 @@ a.text-link:hover {
   color: var(--text-3);
 }
 
-/* ---------- banners and states ---------- */
+/* ---------- terminal panels: banners, errors, empty states ---------- */
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.875rem;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-3);
+}
+
+.panel-meta {
+  color: var(--text-4);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.panel-body {
+  padding: 0.75rem 0.875rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
 
 .banner-warn {
   border: 1px solid var(--warn-border);
+  background: var(--surface);
+  margin-bottom: 2.5rem;
+}
+
+.banner-warn > .panel-head {
   color: var(--warn);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  padding: 0.625rem 0.875rem;
-  margin-bottom: 1.5rem;
+  border-bottom-color: var(--warn-border);
+}
+
+.banner-warn > .panel-body {
+  color: var(--warn);
 }
 
 .error-panel {
   border: 1px solid var(--neg-border);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
-  padding: 0.875rem 1rem;
+  background: var(--surface);
   margin-top: 1.5rem;
+}
+
+.error-panel > .panel-head {
+  color: var(--neg);
+  border-bottom-color: var(--neg-border);
+}
+
+.error-panel > .panel-body {
+  color: var(--text-2);
 }
 
 .empty-state {
   border: 1px solid var(--hairline);
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
-  padding: 1.5rem 1.25rem;
+  background: var(--surface);
   margin-top: 1.5rem;
+}
+
+.empty-state > .panel-body {
+  color: var(--text-3);
 }
 
 .table-foot {
@@ -358,11 +479,11 @@ a.text-link:hover {
   margin-top: 0.75rem;
 }
 
-/* ---------- stat row (hairline separated, no cards) ---------- */
+/* ---------- stat row (detail page, hairline separated, no cards) ---------- */
 
 .stat-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 2rem;
   padding: 1.25rem 0;
   border-top: 1px solid var(--hairline);
@@ -405,6 +526,83 @@ a.text-link:hover {
   color: var(--neg);
 }
 
+/* ---------- protocol pulse band (leaderboard opening) ---------- */
+
+.pulse-band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.pulse-stat {
+  padding: 1.5rem 2rem;
+  border-left: 1px solid var(--hairline);
+}
+
+.pulse-stat:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.pulse-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text-0);
+}
+
+/* ---------- equity sparkline (server rendered svg) ---------- */
+
+.spark-panel {
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  margin: 2rem 0 0;
+}
+
+.spark-body {
+  padding: 1.5rem 1rem 0.75rem;
+}
+
+.spark-body svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.spark-grid {
+  stroke: var(--hairline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+.spark-hit {
+  fill: transparent;
+  transition: fill 150ms ease;
+}
+
+.spark-hit:hover {
+  fill: rgba(228, 228, 231, 0.07);
+}
+
 /* ---------- verify form ---------- */
 
 form.verify {
@@ -444,6 +642,7 @@ textarea {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 13px;
+  transition: border-color 150ms ease;
 }
 
 input:focus,
@@ -469,6 +668,7 @@ button {
   border-radius: 6px;
   cursor: pointer;
   width: fit-content;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 button:hover:not(:disabled) {
@@ -512,12 +712,175 @@ button:disabled {
   vertical-align: bottom;
 }
 
-@media (max-width: 720px) {
-  .stat {
-    padding: 0 1.25rem;
+/* ---------- responsive: tablets and down (768px) ---------- */
+
+@media (max-width: 768px) {
+  main {
+    padding: 2rem 1.25rem 3.5rem;
   }
 
   .truncate {
     max-width: 140px;
+  }
+
+  /* stat rows: 4-across becomes 2x2 */
+  .stat-row,
+  .pulse-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat,
+  .pulse-stat {
+    padding: 0 1.25rem;
+  }
+
+  .stat:nth-child(odd),
+  .pulse-stat:nth-child(odd) {
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .stat:nth-child(n + 3),
+  .pulse-stat:nth-child(n + 3) {
+    border-top: 1px solid var(--hairline);
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+  }
+
+  /* tables become stacked label:value blocks, header hidden */
+  .table-scroll {
+    overflow-x: visible;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  table {
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--hairline);
+    min-width: 0;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody tr {
+    padding: 1rem 0.25rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background: transparent;
+  }
+
+  td {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 38%) minmax(0, 1fr);
+    gap: 0 1rem;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border: none;
+  }
+
+  td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+  }
+
+  td.num {
+    text-align: left;
+  }
+
+  /* semantic row accents move from first cell to the whole row */
+  tr.row-warn td:first-child,
+  tr.row-bad td:first-child {
+    border-left: none;
+  }
+
+  tr.row-warn {
+    box-shadow: inset 2px 0 0 var(--warn);
+  }
+
+  tr.row-bad {
+    box-shadow: inset 2px 0 0 var(--neg);
+  }
+}
+
+/* ---------- responsive: phones (640px) ---------- */
+
+@media (max-width: 640px) {
+  .site-header {
+    height: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
+
+  main {
+    padding: 1.75rem 1.25rem 3.5rem;
+  }
+}
+
+/* ---------- responsive: small phones (480px) ---------- */
+
+@media (max-width: 480px) {
+  .stat-row,
+  .pulse-band {
+    grid-template-columns: 1fr;
+  }
+
+  .stat,
+  .pulse-stat {
+    padding: 0;
+    border-left: none;
+  }
+
+  .stat:not(:first-child),
+  .pulse-stat:not(:first-child) {
+    border-top: 1px solid var(--hairline);
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+  }
+}
+
+/* ---------- motion opt-out ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  tbody tr {
+    animation: none;
+  }
+
+  tbody tr,
+  a,
+  button,
+  input,
+  textarea,
+  .badge,
+  .spark-hit {
+    transition: none;
   }
 }
