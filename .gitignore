@@ -9,3 +9,8 @@ __pycache__/
 .venv/
 vouch/out/
 vouch/evidence/
+
+__pycache__/
+*.pyc
+
+HANDOFF.md
