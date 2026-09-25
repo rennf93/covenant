@@ -2,7 +2,7 @@
 //! (sdk/scripts/gen-fixtures.ts). If either implementation drifts, this fails.
 
 use alloy_primitives::B256;
-use merkle_core::{build_root, build_proof, verify_proof};
+use merkle_core::{build_proof, build_root, verify_proof};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -40,7 +40,12 @@ fn typescript_fixtures_verify() {
         let leaves: Vec<B256> = f.leaves.iter().map(|s| parse_b256(s)).collect();
 
         // root reconstruction matches the TS-computed root
-        assert_eq!(build_root(&leaves), parse_b256(&f.root), "root drift at n={}", f.size);
+        assert_eq!(
+            build_root(&leaves),
+            parse_b256(&f.root),
+            "root drift at n={}",
+            f.size
+        );
 
         for case in &f.cases {
             let leaf = parse_b256(&case.leaf);
@@ -55,11 +60,7 @@ fn typescript_fixtures_verify() {
 
         // spot-check proof generation parity for the first leaf
         let rust_proof = build_proof(&leaves, 0);
-        let ts_proof: Vec<B256> = f.cases[0]
-            .proof
-            .iter()
-            .map(|s| parse_b256(s))
-            .collect();
+        let ts_proof: Vec<B256> = f.cases[0].proof.iter().map(|s| parse_b256(s)).collect();
         assert_eq!(rust_proof, ts_proof, "proof bytes drift at n={}", f.size);
     }
 }

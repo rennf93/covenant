@@ -5,8 +5,8 @@
 //! which is exactly what a real USDG token would receive.
 
 use super::*;
-use alloy_primitives::{keccak256, Address, U256};
-use alloy_sol_types::{sol, SolCall, SolEvent, SolType};
+use alloy_primitives::{Address, U256, keccak256};
+use alloy_sol_types::{SolCall, SolEvent, SolType, sol};
 use stylus_sdk::testing::TestVM;
 
 sol! {
@@ -42,8 +42,8 @@ struct Setup {
 impl Setup {
     fn new() -> Self {
         let vm = TestVM::new();
-        let s = Setup {
-            vm: vm,
+        Setup {
+            vm,
             admin: addr(1),
             operator: addr(2),
             resolver: addr(3),
@@ -51,8 +51,7 @@ impl Setup {
             usdg: addr(5),
             bond: U256::from(BOND),
             stake: U256::from(STAKE),
-        };
-        s
+        }
     }
 
     /// Deploys the contract through its real constructor as `admin`.
@@ -110,12 +109,22 @@ fn constructor_sets_config_and_rejects_zero_inputs() {
     s.vm.set_sender(s.admin);
     let mut contract = Covenant::from(&s.vm);
 
-    assert!(contract
-        .constructor(Address::ZERO, s.resolver, s.bond, s.stake, U64::from(WINDOW))
-        .is_err());
-    assert!(contract
-        .constructor(s.usdg, s.resolver, U256::ZERO, s.stake, U64::from(WINDOW))
-        .is_err());
+    assert!(
+        contract
+            .constructor(
+                Address::ZERO,
+                s.resolver,
+                s.bond,
+                s.stake,
+                U64::from(WINDOW)
+            )
+            .is_err()
+    );
+    assert!(
+        contract
+            .constructor(s.usdg, s.resolver, U256::ZERO, s.stake, U64::from(WINDOW))
+            .is_err()
+    );
 
     contract
         .constructor(s.usdg, s.resolver, s.bond, s.stake, U64::from(WINDOW))
@@ -139,8 +148,16 @@ fn admin_guards_block_strangers() {
     s.vm.set_sender(s.challenger);
     assert!(contract.set_resolver(s.challenger).is_err());
     assert!(contract.pause().is_err());
-    assert!(contract.set_parameters(s.bond, s.stake, U64::from(1)).is_err());
-    assert!(contract.withdraw_treasury(s.challenger, U256::from(1)).is_err());
+    assert!(
+        contract
+            .set_parameters(s.bond, s.stake, U64::from(1))
+            .is_err()
+    );
+    assert!(
+        contract
+            .withdraw_treasury(s.challenger, U256::from(1))
+            .is_err()
+    );
 }
 
 #[test]
@@ -194,23 +211,53 @@ fn commit_epoch_requires_owner_and_sequential_epochs() {
     // Stranger cannot commit.
     s.vm.set_sender(s.challenger);
     assert!(matches!(
-        contract.commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into()),
+        contract.commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into()
+        ),
         Err(CovenantError::NotStrategyOwner(NotStrategyOwner {}))
     ));
 
     // Owner cannot skip epochs.
     s.vm.set_sender(s.operator);
     assert!(matches!(
-        contract.commit_epoch(id, U64::from(1), i256(1000), I256::ZERO, B256::ZERO, "".into()),
+        contract.commit_epoch(
+            id,
+            U64::from(1),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into()
+        ),
         Err(CovenantError::EpochNotSequential(EpochNotSequential {}))
     ));
 
     // Sequential commit succeeds; unknown strategy rejected.
-    assert!(contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "ipfs://e0".into())
-        .is_ok());
+    assert!(
+        contract
+            .commit_epoch(
+                id,
+                U64::from(0),
+                i256(1000),
+                I256::ZERO,
+                B256::ZERO,
+                "ipfs://e0".into()
+            )
+            .is_ok()
+    );
     assert!(matches!(
-        contract.commit_epoch(U256::from(99), U64::from(0), i256(1), I256::ZERO, B256::ZERO, "".into()),
+        contract.commit_epoch(
+            U256::from(99),
+            U64::from(0),
+            i256(1),
+            I256::ZERO,
+            B256::ZERO,
+            "".into()
+        ),
         Err(CovenantError::StrategyNotFound(StrategyNotFound {}))
     ));
 }
@@ -224,25 +271,45 @@ fn finalize_applies_performance_accounting() {
 
     // Epoch 0: initial capital of 1000 is itself the first flow, so PnL 0.
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), i256(1000), B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            i256(1000),
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit 0");
     // Cannot finalize inside the challenge window.
     assert!(matches!(
         contract.finalize_epoch(id, U64::from(0)),
-        Err(CovenantError::ChallengeWindowActive(ChallengeWindowActive {}))
+        Err(CovenantError::ChallengeWindowActive(
+            ChallengeWindowActive {}
+        ))
     ));
 
     // Epoch 1: equity 1200 after a net deposit of 100. PnL = 1200 - 1000 - 100 = 100.
     s.vm.set_block_timestamp(1);
     contract
-        .commit_epoch(id, U64::from(1), i256(1200), i256(100), B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(1),
+            i256(1200),
+            i256(100),
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit 1");
 
     // Move time past both windows and finalize out of order is not possible:
     // epoch 0 finalizes, then epoch 1.
     s.vm.set_block_timestamp(WINDOW + 1);
-    contract.finalize_epoch(id, U64::from(0)).expect("finalize 0");
-    contract.finalize_epoch(id, U64::from(1)).expect("finalize 1");
+    contract
+        .finalize_epoch(id, U64::from(0))
+        .expect("finalize 0");
+    contract
+        .finalize_epoch(id, U64::from(1))
+        .expect("finalize 1");
 
     let (equity, hwm, cumulative_pnl, epoch_count, finalized) =
         contract.get_performance(id).expect("performance");
@@ -255,10 +322,19 @@ fn finalize_applies_performance_accounting() {
     // Epoch 2: loss to 900. PnL = -300. HWM must stay 1200.
     s.vm.set_block_timestamp(2);
     contract
-        .commit_epoch(id, U64::from(2), i256(900), I256::ZERO, B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(2),
+            i256(900),
+            I256::ZERO,
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit 2");
     s.vm.set_block_timestamp(WINDOW + 2);
-    contract.finalize_epoch(id, U64::from(2)).expect("finalize 2");
+    contract
+        .finalize_epoch(id, U64::from(2))
+        .expect("finalize 2");
     let (equity, hwm, cumulative_pnl, _, _) = contract.get_performance(id).expect("performance");
     assert_eq!(equity, i256(900));
     assert_eq!(hwm, i256(1200));
@@ -272,7 +348,14 @@ fn challenge_and_upheld_resolution_slashes_operator() {
     let id = s.register(&mut contract);
     s.vm.set_sender(s.operator);
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit");
 
     // Challenge within the window.
@@ -286,11 +369,15 @@ fn challenge_and_upheld_resolution_slashes_operator() {
     s.vm.set_sender(s.resolver);
     s.mock_transfer(s.challenger, s.stake);
     s.mock_transfer(s.challenger, s.bond);
-    contract.resolve_challenge(id, U64::from(0), true).expect("resolve");
+    contract
+        .resolve_challenge(id, U64::from(0), true)
+        .expect("resolve");
 
     let (_, _, _, _, status, _) = contract.get_strategy(id).expect("strategy");
     assert_eq!(status, STATUS_SUSPENDED);
-    let (_, _, _, _, cp_status, _, _, _) = contract.get_checkpoint(id, U64::from(0)).expect("checkpoint");
+    let (_, _, _, _, cp_status, _, _, _) = contract
+        .get_checkpoint(id, U64::from(0))
+        .expect("checkpoint");
     assert_eq!(cp_status, CP_INVALIDATED);
 
     // Suspended strategies cannot commit.
@@ -308,19 +395,32 @@ fn dismissed_challenge_forfeits_stake_and_finalizes_epoch() {
     let id = s.register(&mut contract);
     s.vm.set_sender(s.operator);
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit");
 
     s.vm.set_sender(s.challenger);
     s.mock_transfer_from(s.challenger, s.stake);
-    contract.challenge_epoch(id, U64::from(0), "spurious".into()).expect("challenge");
+    contract
+        .challenge_epoch(id, U64::from(0), "spurious".into())
+        .expect("challenge");
 
     s.vm.set_sender(s.resolver);
-    contract.resolve_challenge(id, U64::from(0), false).expect("resolve");
+    contract
+        .resolve_challenge(id, U64::from(0), false)
+        .expect("resolve");
 
     let (_, _, _, _, _, _, _, treasury) = contract.config();
     assert_eq!(treasury, s.stake);
-    let (_, _, _, _, cp_status, _, _, _) = contract.get_checkpoint(id, U64::from(0)).expect("checkpoint");
+    let (_, _, _, _, cp_status, _, _, _) = contract
+        .get_checkpoint(id, U64::from(0))
+        .expect("checkpoint");
     assert_eq!(cp_status, CP_FINALIZED);
 
     // Finalized checkpoints cannot be challenged again.
@@ -339,7 +439,14 @@ fn challenge_after_window_is_rejected() {
     let id = s.register(&mut contract);
     s.vm.set_sender(s.operator);
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit");
 
     s.vm.set_block_timestamp(WINDOW + 1);
@@ -347,7 +454,9 @@ fn challenge_after_window_is_rejected() {
     s.mock_transfer_from(s.challenger, s.stake);
     assert!(matches!(
         contract.challenge_epoch(id, U64::from(0), "too late".into()),
-        Err(CovenantError::ChallengeWindowElapsed(ChallengeWindowElapsed {}))
+        Err(CovenantError::ChallengeWindowElapsed(
+            ChallengeWindowElapsed {}
+        ))
     ));
 }
 
@@ -362,7 +471,14 @@ fn verify_receipt_checks_merkle_proofs() {
     let leaves: Vec<B256> = (0..3u8).map(|i| keccak256([i; 32])).collect();
     let root = merkle_core::build_root(&leaves);
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, root, "ipfs://e".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            root,
+            "ipfs://e".into(),
+        )
         .expect("commit");
 
     for i in 0..3usize {
@@ -385,18 +501,27 @@ fn emitted_events_carry_expected_topics() {
     let id = s.register(&mut contract);
     s.vm.set_sender(s.operator);
     contract
-        .commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into())
+        .commit_epoch(
+            id,
+            U64::from(0),
+            i256(1000),
+            I256::ZERO,
+            B256::ZERO,
+            "".into(),
+        )
         .expect("commit");
 
     let logs = s.vm.get_emitted_logs();
     let registered_topic = <StrategyRegistered as SolEvent>::SIGNATURE_HASH;
     let committed_topic = <EpochCommitted as SolEvent>::SIGNATURE_HASH;
     assert!(
-        logs.iter().any(|(topics, _)| topics.len() >= 2 && topics[0] == registered_topic),
+        logs.iter()
+            .any(|(topics, _)| topics.len() >= 2 && topics[0] == registered_topic),
         "StrategyRegistered must be emitted"
     );
     assert!(
-        logs.iter().any(|(topics, _)| topics.len() >= 2 && topics[0] == committed_topic),
+        logs.iter()
+            .any(|(topics, _)| topics.len() >= 2 && topics[0] == committed_topic),
         "EpochCommitted must be emitted"
     );
 }

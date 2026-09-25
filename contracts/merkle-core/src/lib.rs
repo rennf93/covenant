@@ -27,7 +27,7 @@ pub fn build_root(leaves: &[B256]) -> B256 {
     assert!(!leaves.is_empty(), "empty epoch: must not commit a tree");
     let mut current: Vec<B256> = leaves.to_vec();
     while current.len() > 1 {
-        let mut next = Vec::with_capacity((current.len() + 1) / 2);
+        let mut next = Vec::with_capacity(current.len().div_ceil(2));
         for pair in current.chunks(2) {
             let left = pair[0];
             // Duplicate-last padding for odd-length levels.
@@ -52,7 +52,7 @@ pub fn build_proof(leaves: &[B256], index: usize) -> Vec<B256> {
         // With duplicate-last padding, a last-position leaf on an odd-length
         // level is its own sibling (its hash input used the node twice).
         proof.push(current[sibling_idx.min(current.len() - 1)]);
-        let mut next = Vec::with_capacity((current.len() + 1) / 2);
+        let mut next = Vec::with_capacity(current.len().div_ceil(2));
         for pair in current.chunks(2) {
             let left = pair[0];
             let right = pair.get(1).copied().unwrap_or(left);
