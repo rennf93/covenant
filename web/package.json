@@ -17,7 +17,7 @@
     "@fontsource-variable/space-grotesk": "^5.1.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.2",
     "@types/react": "^19.0.0",
     "typescript": "^5.6.0"
   }
