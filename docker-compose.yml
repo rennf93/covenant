@@ -1,7 +1,7 @@
-# Proven stack: indexer + leaderboard. The vouch agent is a profile service.
+# Covenant stack: indexer + leaderboard. The vouch agent is a profile service.
 #
 #   RPC_URL / CONTRACT_ADDRESS required for a real indexer. Without a deployed
-#   contract there is nothing to index; see contracts/proven/README.md for the
+#   contract there is nothing to index; see contracts/covenant/README.md for the
 #   deployment runbook.
 #
 #   docker compose up --build          # indexer + web
@@ -14,7 +14,7 @@ services:
       dockerfile: indexer/Dockerfile
     environment:
       RPC_URL: ${RPC_URL:?set RPC_URL to an Arbitrum RPC endpoint}
-      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:?set CONTRACT_ADDRESS to the deployed Proven proxy}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:?set CONTRACT_ADDRESS to the deployed Covenant proxy}
       CHAIN: ${CHAIN:-arbitrum-sepolia}
       PORT: 8787
     ports:
@@ -39,11 +39,11 @@ services:
       dockerfile: vouch/Dockerfile
     profiles: ["agent"]
     environment:
-      PROVEN_ATTEST: ${PROVEN_ATTEST:-1}
-      PROVEN_STRATEGY_NAME: ${PROVEN_STRATEGY_NAME:-vouch-sol}
-      PROVEN_RPC_URL: ${RPC_URL:-}
-      PROVEN_PRIVATE_KEY: ${PROVEN_PRIVATE_KEY:-}
-      PROVEN_CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-}
+      COVENANT_ATTEST: ${COVENANT_ATTEST:-1}
+      COVENANT_STRATEGY_NAME: ${COVENANT_STRATEGY_NAME:-vouch-sol}
+      COVENANT_RPC_URL: ${RPC_URL:-}
+      COVENANT_PRIVATE_KEY: ${COVENANT_PRIVATE_KEY:-}
+      COVENANT_CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-}
       VOUCH_S1_PROVIDER: local
     volumes:
       - vouch-out:/app/out

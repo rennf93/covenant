@@ -1,4 +1,4 @@
-//! Proven: onchain proof-of-performance for trading strategies.
+//! Covenant: onchain proof-of-performance for trading strategies.
 //!
 //! Strategies commit sequential epoch checkpoints (ending equity in USDG terms,
 //! net external flows, and a Merkle root of canonical trade receipts). Anyone
@@ -56,7 +56,7 @@ sol! {
 }
 
 #[derive(SolidityError)]
-pub enum ProvenError {
+pub enum CovenantError {
     NotAdmin(NotAdmin),
     NotResolver(NotResolver),
     NotStrategyOwner(NotStrategyOwner),
@@ -74,24 +74,24 @@ pub enum ProvenError {
     TokenTransferFailed(TokenTransferFailed),
 }
 
-impl core::fmt::Debug for ProvenError {
+impl core::fmt::Debug for CovenantError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = match self {
-            ProvenError::NotAdmin(_) => "NotAdmin",
-            ProvenError::NotResolver(_) => "NotResolver",
-            ProvenError::NotStrategyOwner(_) => "NotStrategyOwner",
-            ProvenError::ContractPaused(_) => "ContractPaused",
-            ProvenError::StrategyNotFound(_) => "StrategyNotFound",
-            ProvenError::StrategySuspended(_) => "StrategySuspended",
-            ProvenError::EpochNotSequential(_) => "EpochNotSequential",
-            ProvenError::EpochUnknown(_) => "EpochUnknown",
-            ProvenError::EpochNotPending(_) => "EpochNotPending",
-            ProvenError::ChallengeWindowElapsed(_) => "ChallengeWindowElapsed",
-            ProvenError::ChallengeWindowActive(_) => "ChallengeWindowActive",
-            ProvenError::AlreadyChallenged(_) => "AlreadyChallenged",
-            ProvenError::ZeroAddress(_) => "ZeroAddress",
-            ProvenError::ZeroAmount(_) => "ZeroAmount",
-            ProvenError::TokenTransferFailed(_) => "TokenTransferFailed",
+            CovenantError::NotAdmin(_) => "NotAdmin",
+            CovenantError::NotResolver(_) => "NotResolver",
+            CovenantError::NotStrategyOwner(_) => "NotStrategyOwner",
+            CovenantError::ContractPaused(_) => "ContractPaused",
+            CovenantError::StrategyNotFound(_) => "StrategyNotFound",
+            CovenantError::StrategySuspended(_) => "StrategySuspended",
+            CovenantError::EpochNotSequential(_) => "EpochNotSequential",
+            CovenantError::EpochUnknown(_) => "EpochUnknown",
+            CovenantError::EpochNotPending(_) => "EpochNotPending",
+            CovenantError::ChallengeWindowElapsed(_) => "ChallengeWindowElapsed",
+            CovenantError::ChallengeWindowActive(_) => "ChallengeWindowActive",
+            CovenantError::AlreadyChallenged(_) => "AlreadyChallenged",
+            CovenantError::ZeroAddress(_) => "ZeroAddress",
+            CovenantError::ZeroAmount(_) => "ZeroAmount",
+            CovenantError::TokenTransferFailed(_) => "TokenTransferFailed",
         };
         f.write_str(name)
     }
@@ -111,7 +111,7 @@ pub const CP_INVALIDATED: u8 = 3;
 
 sol_storage! {
     #[entrypoint]
-    pub struct Proven {
+    pub struct Covenant {
         address admin;
         address resolver;
         address usdg;
@@ -158,7 +158,7 @@ sol_storage! {
 // Contract ---------------------------------------------------------------
 
 #[public]
-impl Proven {
+impl Covenant {
     /// Deploy-time initialization. `usdg` is the settlement token address.
     #[constructor]
     pub fn constructor(
@@ -168,12 +168,12 @@ impl Proven {
         bond_amount: U256,
         challenge_stake: U256,
         challenge_window: U64,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         if usdg.is_zero() || resolver.is_zero() {
-            return Err(ProvenError::ZeroAddress(ZeroAddress {}));
+            return Err(CovenantError::ZeroAddress(ZeroAddress {}));
         }
         if bond_amount == U256::ZERO || challenge_stake == U256::ZERO || challenge_window.is_zero() {
-            return Err(ProvenError::ZeroAmount(ZeroAmount {}));
+            return Err(CovenantError::ZeroAmount(ZeroAmount {}));
         }
         let sender = self.vm().msg_sender();
         self.admin.set(sender);
@@ -190,7 +190,7 @@ impl Proven {
 
     // Admin -------------------------------------------------------------
 
-    pub fn set_resolver(&mut self, new_resolver: Address) -> Result<(), ProvenError> {
+    pub fn set_resolver(&mut self, new_resolver: Address) -> Result<(), CovenantError> {
         self.only_admin()?;
         self.resolver.set(new_resolver);
         Ok(())
@@ -201,10 +201,10 @@ impl Proven {
         bond_amount: U256,
         challenge_stake: U256,
         challenge_window: U64,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         self.only_admin()?;
         if bond_amount == U256::ZERO || challenge_stake == U256::ZERO || challenge_window.is_zero() {
-            return Err(ProvenError::ZeroAmount(ZeroAmount {}));
+            return Err(CovenantError::ZeroAmount(ZeroAmount {}));
         }
         self.bond_amount.set(bond_amount);
         self.challenge_stake.set(challenge_stake);
@@ -212,26 +212,26 @@ impl Proven {
         Ok(())
     }
 
-    pub fn pause(&mut self) -> Result<(), ProvenError> {
+    pub fn pause(&mut self) -> Result<(), CovenantError> {
         self.only_admin()?;
         self.paused.set(true);
         Ok(())
     }
 
-    pub fn unpause(&mut self) -> Result<(), ProvenError> {
+    pub fn unpause(&mut self) -> Result<(), CovenantError> {
         self.only_admin()?;
         self.paused.set(false);
         Ok(())
     }
 
-    pub fn withdraw_treasury(&mut self, to: Address, amount: U256) -> Result<(), ProvenError> {
+    pub fn withdraw_treasury(&mut self, to: Address, amount: U256) -> Result<(), CovenantError> {
         self.only_admin()?;
         if to.is_zero() {
-            return Err(ProvenError::ZeroAddress(ZeroAddress {}));
+            return Err(CovenantError::ZeroAddress(ZeroAddress {}));
         }
         let treasury = self.treasury.get();
         if amount > treasury {
-            return Err(ProvenError::ZeroAmount(ZeroAmount {}));
+            return Err(CovenantError::ZeroAmount(ZeroAmount {}));
         }
         self.treasury.set(treasury - amount);
         self.usdg_transfer(to, amount)
@@ -244,9 +244,9 @@ impl Proven {
         &mut self,
         name: String,
         metadata_uri: String,
-    ) -> Result<U256, ProvenError> {
+    ) -> Result<U256, CovenantError> {
         if self.paused.get() {
-            return Err(ProvenError::ContractPaused(ContractPaused {}));
+            return Err(CovenantError::ContractPaused(ContractPaused {}));
         }
         let sender = self.vm().msg_sender();
         let bond = self.bond_amount.get();
@@ -287,9 +287,9 @@ impl Proven {
         net_flow: I256,
         trades_root: B256,
         evidence_uri: String,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         if self.paused.get() {
-            return Err(ProvenError::ContractPaused(ContractPaused {}));
+            return Err(CovenantError::ContractPaused(ContractPaused {}));
         }
 
         // Read phase.
@@ -298,16 +298,16 @@ impl Proven {
             (s.owner.get(), s.status.get().to::<u8>(), s.epoch_count.get())
         };
         if owner.is_zero() {
-            return Err(ProvenError::StrategyNotFound(StrategyNotFound {}));
+            return Err(CovenantError::StrategyNotFound(StrategyNotFound {}));
         }
         if self.vm().msg_sender() != owner {
-            return Err(ProvenError::NotStrategyOwner(NotStrategyOwner {}));
+            return Err(CovenantError::NotStrategyOwner(NotStrategyOwner {}));
         }
         if status != STATUS_ACTIVE {
-            return Err(ProvenError::StrategySuspended(StrategySuspended {}));
+            return Err(CovenantError::StrategySuspended(StrategySuspended {}));
         }
         if epoch_index != epoch_count {
-            return Err(ProvenError::EpochNotSequential(EpochNotSequential {}));
+            return Err(CovenantError::EpochNotSequential(EpochNotSequential {}));
         }
         let now = U64::from(self.vm().block_timestamp());
         if epoch_index > U64::ZERO {
@@ -318,7 +318,7 @@ impl Proven {
                 .committed_at
                 .get();
             if prev_committed_at >= now {
-                return Err(ProvenError::EpochNotSequential(EpochNotSequential {}));
+                return Err(CovenantError::EpochNotSequential(EpochNotSequential {}));
             }
         }
 
@@ -353,9 +353,9 @@ impl Proven {
 
     /// Permissionless: finalizes a pending checkpoint whose challenge window
     /// has elapsed, applying its performance accounting.
-    pub fn finalize_epoch(&mut self, strategy_id: U256, epoch_index: U64) -> Result<(), ProvenError> {
+    pub fn finalize_epoch(&mut self, strategy_id: U256, epoch_index: U64) -> Result<(), CovenantError> {
         if self.strategies.getter(strategy_id).owner.get().is_zero() {
-            return Err(ProvenError::StrategyNotFound(StrategyNotFound {}));
+            return Err(CovenantError::StrategyNotFound(StrategyNotFound {}));
         }
 
         // Read phase.
@@ -365,11 +365,11 @@ impl Proven {
             (cp.status.get().to::<u8>(), cp.committed_at.get(), cp.equity.get(), cp.net_flow.get())
         };
         if status != CP_PENDING {
-            return Err(ProvenError::EpochNotPending(EpochNotPending {}));
+            return Err(CovenantError::EpochNotPending(EpochNotPending {}));
         }
         let now = U64::from(self.vm().block_timestamp());
         if now < committed_at.saturating_add(self.challenge_window.get()) {
-            return Err(ProvenError::ChallengeWindowActive(ChallengeWindowActive {}));
+            return Err(CovenantError::ChallengeWindowActive(ChallengeWindowActive {}));
         }
 
         // Write phase: checkpoint finalized, performance accounting applied.
@@ -414,7 +414,7 @@ impl Proven {
         strategy_id: U256,
         epoch_index: U64,
         reason: String,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         // Read phase.
         let (status, committed_at) = {
             let epoch_map = self.checkpoints.getter(strategy_id);
@@ -422,11 +422,11 @@ impl Proven {
             (cp.status.get().to::<u8>(), cp.committed_at.get())
         };
         if status != CP_PENDING {
-            return Err(ProvenError::EpochNotPending(EpochNotPending {}));
+            return Err(CovenantError::EpochNotPending(EpochNotPending {}));
         }
         let now = U64::from(self.vm().block_timestamp());
         if now >= committed_at.saturating_add(self.challenge_window.get()) {
-            return Err(ProvenError::ChallengeWindowElapsed(ChallengeWindowElapsed {}));
+            return Err(CovenantError::ChallengeWindowElapsed(ChallengeWindowElapsed {}));
         }
 
         let sender = self.vm().msg_sender();
@@ -458,9 +458,9 @@ impl Proven {
         strategy_id: U256,
         epoch_index: U64,
         upheld: bool,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         if self.vm().msg_sender() != self.resolver.get() {
-            return Err(ProvenError::NotResolver(NotResolver {}));
+            return Err(CovenantError::NotResolver(NotResolver {}));
         }
 
         // Read phase.
@@ -470,7 +470,7 @@ impl Proven {
             (cp.status.get().to::<u8>(), cp.challenger.get(), cp.stake.get())
         };
         if status != CP_CHALLENGED {
-            return Err(ProvenError::AlreadyChallenged(AlreadyChallenged {}));
+            return Err(CovenantError::AlreadyChallenged(AlreadyChallenged {}));
         }
         let resolver = self.vm().msg_sender();
 
@@ -559,10 +559,10 @@ impl Proven {
     pub fn get_strategy(
         &self,
         strategy_id: U256,
-    ) -> Result<(Address, String, String, U256, U8, U64), ProvenError> {
+    ) -> Result<(Address, String, String, U256, U8, U64), CovenantError> {
         let strategy = self.strategies.getter(strategy_id);
         if strategy.owner.get().is_zero() {
-            return Err(ProvenError::StrategyNotFound(StrategyNotFound {}));
+            return Err(CovenantError::StrategyNotFound(StrategyNotFound {}));
         }
         Ok((
             strategy.owner.get(),
@@ -577,10 +577,10 @@ impl Proven {
     pub fn get_performance(
         &self,
         strategy_id: U256,
-    ) -> Result<(I256, I256, I256, U64, U64), ProvenError> {
+    ) -> Result<(I256, I256, I256, U64, U64), CovenantError> {
         let strategy = self.strategies.getter(strategy_id);
         if strategy.owner.get().is_zero() {
-            return Err(ProvenError::StrategyNotFound(StrategyNotFound {}));
+            return Err(CovenantError::StrategyNotFound(StrategyNotFound {}));
         }
         Ok((
             strategy.equity.get(),
@@ -595,9 +595,9 @@ impl Proven {
         &self,
         strategy_id: U256,
         epoch_index: U64,
-    ) -> Result<(I256, I256, B256, String, U8, U64, Address, U256), ProvenError> {
+    ) -> Result<(I256, I256, B256, String, U8, U64, Address, U256), CovenantError> {
         if epoch_index >= self.strategies.getter(strategy_id).epoch_count.get() {
-            return Err(ProvenError::EpochUnknown(EpochUnknown {}));
+            return Err(CovenantError::EpochUnknown(EpochUnknown {}));
         }
         let epoch_map = self.checkpoints.getter(strategy_id);
         let checkpoint = epoch_map.get(epoch_index);
@@ -616,10 +616,10 @@ impl Proven {
 
 // Internal helpers ------------------------------------------------------
 
-impl Proven {
-    fn only_admin(&self) -> Result<(), ProvenError> {
+impl Covenant {
+    fn only_admin(&self) -> Result<(), CovenantError> {
         if self.vm().msg_sender() != self.admin.get() {
-            return Err(ProvenError::NotAdmin(NotAdmin {}));
+            return Err(CovenantError::NotAdmin(NotAdmin {}));
         }
         Ok(())
     }
@@ -629,29 +629,29 @@ impl Proven {
         from: Address,
         to: Address,
         amount: U256,
-    ) -> Result<(), ProvenError> {
+    ) -> Result<(), CovenantError> {
         let usdg = IUSDG::new(self.usdg.get());
         let context = Call::new_mutating(self);
         let ok = usdg
             .transfer_from(self.vm(), context, from, to, amount)
-            .map_err(|_| ProvenError::TokenTransferFailed(TokenTransferFailed {}))?;
+            .map_err(|_| CovenantError::TokenTransferFailed(TokenTransferFailed {}))?;
         if ok {
             Ok(())
         } else {
-            Err(ProvenError::TokenTransferFailed(TokenTransferFailed {}))
+            Err(CovenantError::TokenTransferFailed(TokenTransferFailed {}))
         }
     }
 
-    fn usdg_transfer(&mut self, to: Address, amount: U256) -> Result<(), ProvenError> {
+    fn usdg_transfer(&mut self, to: Address, amount: U256) -> Result<(), CovenantError> {
         let usdg = IUSDG::new(self.usdg.get());
         let context = Call::new_mutating(self);
         let ok = usdg
             .transfer(self.vm(), context, to, amount)
-            .map_err(|_| ProvenError::TokenTransferFailed(TokenTransferFailed {}))?;
+            .map_err(|_| CovenantError::TokenTransferFailed(TokenTransferFailed {}))?;
         if ok {
             Ok(())
         } else {
-            Err(ProvenError::TokenTransferFailed(TokenTransferFailed {}))
+            Err(CovenantError::TokenTransferFailed(TokenTransferFailed {}))
         }
     }
 }

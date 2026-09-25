@@ -4,7 +4,7 @@ import { indexerUrl } from "../lib/api";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Proven - onchain proof of performance",
+  title: "Covenant - onchain proof of performance",
   description:
     "Non-custodial, tamper-evident track records for trading strategies, settled in USDG on Arbitrum.",
 };
@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <header className="site-header">
           <Link href="/" className="wordmark">
-            PROVEN
+            COVENANT
           </Link>
           <div className="header-right">
             <nav>

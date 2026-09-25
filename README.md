@@ -1,4 +1,4 @@
-# Proven
+# Covenant
 
 Onchain proof-of-performance for trading strategies, built for the
 Arbitrum Open House Singapore Buildathon.
@@ -16,7 +16,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the protocol spec and trust model.
 
 | Path | What it is |
 | --- | --- |
-| `contracts/proven/` | Stylus contract (Rust). Registry, checkpoints, challenges, USDG escrow. |
+| `contracts/covenant/` | Stylus contract (Rust). Registry, checkpoints, challenges, USDG escrow. |
 | `contracts/merkle-core/` | Pure Rust Merkle/receipt primitives shared by the contract. |
 | `sdk/` | TypeScript SDK: receipt canonicalization, Merkle trees, epoch builder, RPC clients. |
 | `indexer/` | Event-sourced indexer + JSON API (`/strategies`, `/strategies/:id`, `/health`). |
@@ -34,7 +34,7 @@ docker compose --profile agent up            # + the vouch agent, attested shado
 ## Status
 
 - Contract: 11/11 tests green, `wasm32` release build verified, ABI exported to
-  `contracts/proven/abi/IProven.sol`. Not yet deployed.
+  `contracts/covenant/abi/ICovenant.sol`. Not yet deployed.
 - SDK: 8/8 tests. Merkle semantics are fixture-conformed between TS and Rust.
 - Indexer: 5/5 tests.
 - Web: `next build` passes.
@@ -46,10 +46,10 @@ docker compose --profile agent up            # + the vouch agent, attested shado
 ```bash
 pnpm install            # workspace: sdk, indexer, web
 pnpm -r test            # sdk + indexer suites
-pnpm --filter @proven/web run build
+pnpm --filter @covenant/web run build
 
 # contract tests + WASM build
-cd contracts/proven && cargo test
+cd contracts/covenant && cargo test
 cargo build --release --target wasm32-unknown-unknown
 cargo stylus export-abi
 ```
@@ -57,7 +57,7 @@ cargo stylus export-abi
 ## Deploying (staging)
 
 ```bash
-cd contracts/proven
+cd contracts/covenant
 cargo stylus deploy \
   --network sepolia \
   --constructor-args <USDG_ADDRESS> <RESOLVER_ADDRESS> <BOND> <STAKE> <WINDOW_SECONDS>

@@ -189,7 +189,7 @@ export default async function StrategyPage({
         </div>
         <p className="lede mono">
           owner {detail.owner} - bond {formatUsdg(detail.bond)} USDG (slashed to
-          a successful challenger on proven misreporting)
+          a successful challenger on covenant misreporting)
         </p>
       </div>
 

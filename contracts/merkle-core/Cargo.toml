@@ -2,7 +2,7 @@
 name = "merkle-core"
 version = "0.1.0"
 edition = "2021"
-description = "Canonical receipt hashing and sorted-pair Merkle trees shared by the Proven Stylus contract and TS SDK"
+description = "Canonical receipt hashing and sorted-pair Merkle trees shared by the Covenant Stylus contract and TS SDK"
 
 [dependencies]
 alloy-primitives = { version = "1.5", default-features = false, features = ["tiny-keccak", "serde"] }

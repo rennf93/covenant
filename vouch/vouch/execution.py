@@ -8,7 +8,7 @@ Three venues, two real trading surfaces:
 
 Dual-venue story: Coinbase spot and the Arbitrum DEX are both first-class
 venues. Every venue declares a venue_id, a receipt_venue (the int venue
-class from attest.receipts that travels into the canonical Proven
+class from attest.receipts that travels into the canonical Covenant
 receipt), and the canonical instrument it trades. The venue class is
 attested alongside the fill, so a receipt can never blur which market
 produced it.

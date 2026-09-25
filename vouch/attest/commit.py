@@ -1,7 +1,7 @@
 """Epoch close orchestration: evidence bundle first, chain commit second.
 
 Interlocks (hard rules, enforced here):
-  1. A chain write happens ONLY when cfg.connected is true (PROVEN_ATTEST=1
+  1. A chain write happens ONLY when cfg.connected is true (COVENANT_ATTEST=1
      plus rpc url, private key and contract address). An enabled-but-unconnected
      config is the ledger-only demo path: receipts are recorded and evidence
      is written, but nothing touches the chain.
@@ -35,7 +35,7 @@ class CommitError(Exception):
 
 @dataclass
 class AttestationConfig:
-    """Where and whether to attest; PROVEN_ATTEST=1 plus full env = chain mode."""
+    """Where and whether to attest; COVENANT_ATTEST=1 plus full env = chain mode."""
 
     enabled: bool
     rpc_url: str
@@ -47,12 +47,12 @@ class AttestationConfig:
     @classmethod
     def from_env(cls) -> "AttestationConfig":
         return cls(
-            enabled=os.environ.get("PROVEN_ATTEST") == "1",
-            rpc_url=os.environ.get("PROVEN_RPC_URL", ""),
-            private_key=os.environ.get("PROVEN_PRIVATE_KEY", ""),
-            contract_address=os.environ.get("PROVEN_CONTRACT_ADDRESS", ""),
-            chain=os.environ.get("PROVEN_CHAIN", "arbitrum-sepolia"),
-            evidence_dir=Path(os.environ.get("PROVEN_EVIDENCE_DIR", "evidence")),
+            enabled=os.environ.get("COVENANT_ATTEST") == "1",
+            rpc_url=os.environ.get("COVENANT_RPC_URL", ""),
+            private_key=os.environ.get("COVENANT_PRIVATE_KEY", ""),
+            contract_address=os.environ.get("COVENANT_CONTRACT_ADDRESS", ""),
+            chain=os.environ.get("COVENANT_CHAIN", "arbitrum-sepolia"),
+            evidence_dir=Path(os.environ.get("COVENANT_EVIDENCE_DIR", "evidence")),
         )
 
     @property
@@ -103,7 +103,7 @@ class Attestor:
 
         bundle_path = self._evidence_path(ledger)
         bundle = {
-            "protocol": "proven-v1",
+            "protocol": "covenant-v1",
             "strategyId": self.strategy_id,
             "strategyName": strategy_name,
             "epochIndex": ledger.epoch_index,

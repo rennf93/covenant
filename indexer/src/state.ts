@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 
 /**
- * Pure event reducer for Proven protocol state.
+ * Pure event reducer for Covenant protocol state.
  *
  * The chain is the source of truth; this module derives a queryable model from
  * decoded contract events. It knows nothing about RPC, files, or HTTP so it can
@@ -44,14 +44,14 @@ export interface StrategyView {
   };
 }
 
-export interface ProvenState {
+export interface CovenantState {
   contract: Address;
   /** Block height the state reflects (inclusive). */
   lastBlock: bigint;
   strategies: Map<string, StrategyView>;
 }
 
-export function emptyState(contract: Address): ProvenState {
+export function emptyState(contract: Address): CovenantState {
   return { contract, lastBlock: 0n, strategies: new Map() };
 }
 
@@ -64,7 +64,7 @@ export interface DecodedEvent {
   blockTimestamp?: bigint;
 }
 
-function requireStrategy(state: ProvenState, id: unknown): StrategyView {
+function requireStrategy(state: CovenantState, id: unknown): StrategyView {
   const key = String(id);
   const existing = state.strategies.get(key);
   if (existing) return existing;
@@ -152,7 +152,7 @@ function rederive(strategy: StrategyView): void {
 }
 
 /** Applies one decoded event, mutating and returning the state (chainable). */
-export function applyEvent(state: ProvenState, event: DecodedEvent): ProvenState {
+export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantState {
   const args = event.args;
   switch (event.eventName) {
     case "StrategyRegistered": {
@@ -225,7 +225,7 @@ export function applyEvent(state: ProvenState, event: DecodedEvent): ProvenState
  * Verifies that applying `events` in order is consistent with the reducer's
  * invariants. Used by the transport before committing a backfill batch.
  */
-export function invariantsHold(state: ProvenState): boolean {
+export function invariantsHold(state: CovenantState): boolean {
   for (const s of state.strategies.values()) {
     if (s.owner === ("0x0000000000000000000000000000000000000000" as Address) && s.name === "") {
       return false; // registered strategies must have an owner

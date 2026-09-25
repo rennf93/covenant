@@ -1,5 +1,5 @@
 /**
- * Node bridge between the Python attestor and the Proven Stylus contract.
+ * Node bridge between the Python attestor and the Covenant Stylus contract.
  *
  * Protocol: reads exactly ONE JSON object from stdin, writes exactly ONE
  * JSON object to stdout. On any failure it writes {"error": "..."} to
@@ -13,9 +13,9 @@
  *   {"action": "finalize", "strategyId", "epochIndex"}
  *   {"action": "verify", "strategyId", "epochIndex", "proof": [...], "receiptHash"}
  *
- * Env: PROVEN_RPC_URL, PROVEN_CONTRACT_ADDRESS required. PROVEN_PRIVATE_KEY
+ * Env: COVENANT_RPC_URL, COVENANT_CONTRACT_ADDRESS required. COVENANT_PRIVATE_KEY
  * required for mutating actions (register/commit/finalize); "verify" is a
- * read and works without it. PROVEN_CHAIN: "arbitrum-sepolia" (default) |
+ * read and works without it. COVENANT_CHAIN: "arbitrum-sepolia" (default) |
  * "arbitrum" | "anvil".
  *
  * Module resolution: the repo root has no node_modules; viem lives in the
@@ -30,7 +30,7 @@ const req = createRequire(new URL("../../sdk/package.json", import.meta.url));
 const { createPublicClient, createWalletClient, http } = req("viem");
 const chains = req("viem/chains");
 const { privateKeyToAccount } = req("viem/accounts");
-const { provenAbi } = await import(
+const { covenantAbi } = await import(
   new URL("../../sdk/dist/src/abi.js", import.meta.url).href
 );
 
@@ -83,32 +83,32 @@ async function main() {
     return fail(`unknown action: ${String(action)}`);
   }
 
-  const rpcUrl = env("PROVEN_RPC_URL");
-  const contractAddress = env("PROVEN_CONTRACT_ADDRESS");
-  const chainName = env("PROVEN_CHAIN") || "arbitrum-sepolia";
+  const rpcUrl = env("COVENANT_RPC_URL");
+  const contractAddress = env("COVENANT_CONTRACT_ADDRESS");
+  const chainName = env("COVENANT_CHAIN") || "arbitrum-sepolia";
   const chain = CHAINS[chainName];
   if (!chain) {
-    return fail(`unknown PROVEN_CHAIN: ${chainName}`);
+    return fail(`unknown COVENANT_CHAIN: ${chainName}`);
   }
   if (!rpcUrl) {
-    return fail("PROVEN_RPC_URL is required");
+    return fail("COVENANT_RPC_URL is required");
   }
   if (!contractAddress) {
-    return fail("PROVEN_CONTRACT_ADDRESS is required");
+    return fail("COVENANT_CONTRACT_ADDRESS is required");
   }
 
   const needsKey = action !== "verify";
-  const privateKey = env("PROVEN_PRIVATE_KEY");
+  const privateKey = env("COVENANT_PRIVATE_KEY");
   let account = null;
   if (needsKey) {
     if (!privateKey) {
-      return fail(`PROVEN_PRIVATE_KEY is required for action "${action}"`);
+      return fail(`COVENANT_PRIVATE_KEY is required for action "${action}"`);
     }
     const pk = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
     try {
       account = privateKeyToAccount(pk);
     } catch (e) {
-      return fail(`invalid PROVEN_PRIVATE_KEY: ${e.message}`);
+      return fail(`invalid COVENANT_PRIVATE_KEY: ${e.message}`);
     }
   }
 
@@ -123,7 +123,7 @@ async function main() {
       requireFields(payload, ["name", "metadataUri"]);
       const hash = await walletClient.writeContract({
         address: contractAddress,
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "registerStrategy",
         args: [String(payload.name), String(payload.metadataUri)],
       });
@@ -152,7 +152,7 @@ async function main() {
       ]);
       const hash = await walletClient.writeContract({
         address: contractAddress,
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "commitEpoch",
         args: [
           toBigInt(payload.strategyId),
@@ -171,7 +171,7 @@ async function main() {
       requireFields(payload, ["strategyId", "epochIndex"]);
       const hash = await walletClient.writeContract({
         address: contractAddress,
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "finalizeEpoch",
         args: [toBigInt(payload.strategyId), toBigInt(payload.epochIndex)],
       });
@@ -183,7 +183,7 @@ async function main() {
     requireFields(payload, ["strategyId", "epochIndex", "proof", "receiptHash"]);
     const valid = await publicClient.readContract({
       address: contractAddress,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "verifyReceipt",
       args: [
         toBigInt(payload.strategyId),

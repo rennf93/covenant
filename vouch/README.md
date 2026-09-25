@@ -1,12 +1,12 @@
 # Vouch
 
-The flagship strategy on the Proven leaderboard: a two-model trading loop
+The flagship strategy on the Covenant leaderboard: a two-model trading loop
 where **laya** (fast, non-autoregressive decision engine) is System-1 making
 per-tick trade decisions, and a local **qwen3.8-27b** llama.cpp server is
 System-2, reviewing each epoch and rewriting System-1's tunable rules. Every
 System-2 proposal must survive hard constraint rails enforced in code
 (position cap, bracket bounds, cooldown, a 20% drawdown kill switch the
-rewriter cannot touch). Every fill is attested to Proven as a canonical
+rewriter cannot touch). Every fill is attested to Covenant as a canonical
 onchain receipt.
 
 Runs six ways:
@@ -180,9 +180,9 @@ applied/rejected record for later attribution analysis.
 - The decision on what to build next should be made by the IC numbers
   from run_analysis.py, not by feel.
 
-## Proven attestation (vouch/attest)
+## Covenant attestation (vouch/attest)
 
-The `attest/` package turns every booked fill into a canonical Proven
+The `attest/` package turns every booked fill into a canonical Covenant
 receipt (the byte-exact Python mirror of `sdk/src/receipt.ts`: static ABI
 encoding, keccak256 leaf hash, sign derived from position direction so a
 bought base asset is positive and a sold one negative, including short
@@ -206,9 +206,9 @@ Two honest modes:
 
 - **ledger-only** (default): receipts recorded, evidence bundles written,
   nothing touches the chain. This is what you get with `--attest` or
-  `PROVEN_ATTEST=1` but without the full connection env trio.
-- **onchain**: `PROVEN_ATTEST=1` plus `PROVEN_RPC_URL`,
-  `PROVEN_PRIVATE_KEY`, `PROVEN_CONTRACT_ADDRESS`. Same code path, the
+  `COVENANT_ATTEST=1` but without the full connection env trio.
+- **onchain**: `COVENANT_ATTEST=1` plus `COVENANT_RPC_URL`,
+  `COVENANT_PRIVATE_KEY`, `COVENANT_CONTRACT_ADDRESS`. Same code path, the
   chain writes just turn on.
 
 Venue honesty carries into the receipts: the `arb-paper` venue books
@@ -217,24 +217,24 @@ SOL/USDC prices, simulated AMM fills, no router); the default paper venue
 books `Other`. The venue class travels in the receipt so a proof can
 never blur which market produced the fill.
 
-Attestation is opt-in: run with `--attest` or set `PROVEN_ATTEST=1`. Env
+Attestation is opt-in: run with `--attest` or set `COVENANT_ATTEST=1`. Env
 vars (see `.env.example`):
 
 ```
-PROVEN_ATTEST=1
-PROVEN_RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
-PROVEN_PRIVATE_KEY=<funded operator EOA key>
-PROVEN_CONTRACT_ADDRESS=<Proven Stylus proxy address>
-PROVEN_CHAIN=arbitrum-sepolia
-PROVEN_STRATEGY_ID=0
-PROVEN_STRATEGY_NAME=vouch-sol
+COVENANT_ATTEST=1
+COVENANT_RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
+COVENANT_PRIVATE_KEY=<funded operator EOA key>
+COVENANT_CONTRACT_ADDRESS=<Covenant Stylus proxy address>
+COVENANT_CHAIN=arbitrum-sepolia
+COVENANT_STRATEGY_ID=0
+COVENANT_STRATEGY_NAME=vouch-sol
 ```
 
 Example: an attested shadow session (ledger-only unless the connection
 trio above is exported):
 
 ```bash
-PROVEN_ATTEST=1 .venv/bin/python run_shadow.py --attest --minutes 60
+COVENANT_ATTEST=1 .venv/bin/python run_shadow.py --attest --minutes 60
 ```
 
 Epoch accounting: shadow mode has paper money and no deposits, so the

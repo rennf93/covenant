@@ -1,4 +1,4 @@
-# Proven: Onchain Proof-of-Performance for Trading Strategies
+# Covenant: Onchain Proof-of-Performance for Trading Strategies
 
 ## 1. Problem
 
@@ -10,7 +10,7 @@ which changes the product and excludes CEX-native strategies.
 
 ## 2. Product
 
-Proven is a **non-custodial attestation layer**: strategies commit cryptographic
+Covenant is a **non-custodial attestation layer**: strategies commit cryptographic
 evidence of their trading history onchain, performance is computed from committed
 checkpoints, and anyone can verify a disclosed trade belongs to that history.
 Strategies can trade anywhere (CEX or DEX); the ledger is on Arbitrum.
@@ -37,8 +37,8 @@ Strategies can trade anywhere (CEX or DEX); the ledger is on Arbitrum.
 
 ## 3. Trust model (stated honestly)
 
-Self-reported fills cannot be proven against a CEX without venue cooperation.
-Proven therefore guarantees *consistency and commitment*, not absolute truth:
+Self-reported fills cannot be covenant against a CEX without venue cooperation.
+Covenant therefore guarantees *consistency and commitment*, not absolute truth:
 1. History is **append-only**: an operator cannot quietly rewrite the past.
 2. Disclosures are **verifiable**: any shown trade receipt either validates against
    the committed root or the strategy is provably lying.

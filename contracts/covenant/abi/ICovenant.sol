@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT-OR-APACHE-2.0
 pragma solidity ^0.8.23;
 
-interface IProven {
+interface ICovenant {
     function setResolver(address new_resolver) external;
 
     function setParameters(uint256 bond_amount, uint256 challenge_stake, uint64 challenge_window) external;

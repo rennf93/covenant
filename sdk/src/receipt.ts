@@ -26,7 +26,7 @@ export enum Side {
 }
 
 export interface ReceiptInput {
-  /** Proven strategy id (assigned by the registry). */
+  /** Covenant strategy id (assigned by the registry). */
   strategyId: bigint;
   /** Epoch this fill belongs to. */
   epochIndex: bigint;

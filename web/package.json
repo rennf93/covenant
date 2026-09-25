@@ -1,5 +1,5 @@
 {
-  "name": "@proven/web",
+  "name": "@covenant/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "viem": "^2.21.0",
-    "@proven/sdk": "workspace:*"
+    "@covenant/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

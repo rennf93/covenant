@@ -1,6 +1,6 @@
-# contracts/proven
+# contracts/covenant
 
-The Proven Stylus contract: strategy registry, sequential epoch checkpoints
+The Covenant Stylus contract: strategy registry, sequential epoch checkpoints
 with optimistic challenges, USDG escrow (bonds, challenger stakes,
 treasury), and onchain Merkle receipt verification.
 
@@ -8,7 +8,7 @@ treasury), and onchain Merkle receipt verification.
 - `src/merkle.rs` - sorted-pair Merkle (must stay byte-identical with
   `sdk/src/merkle.ts` and `vouch/attest/merkle.py`; the shared fixture at
   `../merkle-core/tests/fixtures/merkle.json` enforces this)
-- `abi/IProven.sol` - exported ABI (`cargo stylus export-abi`)
+- `abi/ICovenant.sol` - exported ABI (`cargo stylus export-abi`)
 - `../merkle-core/` - pure Rust Merkle/receipt primitives shared by tests
 
 ## Tests and build
@@ -39,7 +39,7 @@ Constructor args, in order:
 | `WINDOW_SECONDS` | challenge window before an epoch finalizes | `300` (5 min for the demo; production wants hours) |
 
 ```bash
-cd contracts/proven
+cd contracts/covenant
 cargo stylus deploy --network sepolia \
   --constructor-args <USDG> <RESOLVER> <BOND> <STAKE> <WINDOW_SECONDS>
 ```
@@ -57,7 +57,7 @@ the production submission plan uses real USDG.
 ## After deploy
 
 1. Register the strategy (pulls the bond): the vouch agent does this via
-   `attest/bridge.mjs` action `register`, or the SDK's `ProvenOperator`.
+   `attest/bridge.mjs` action `register`, or the SDK's `CovenantOperator`.
 2. Point the indexer at it (repo root `docker-compose.yml` or by hand):
 
 ```bash

@@ -1,5 +1,5 @@
 {
-  "name": "proven-monorepo",
+  "name": "covenant-monorepo",
   "private": true,
   "scripts": {
     "build": "pnpm -r --workspace-concurrency=1 run build",

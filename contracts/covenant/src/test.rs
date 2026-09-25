@@ -56,9 +56,9 @@ impl Setup {
     }
 
     /// Deploys the contract through its real constructor as `admin`.
-    fn deploy(&self) -> Proven {
+    fn deploy(&self) -> Covenant {
         self.vm.set_sender(self.admin);
-        let mut contract = Proven::from(&self.vm);
+        let mut contract = Covenant::from(&self.vm);
         contract
             .constructor(
                 self.usdg,
@@ -90,7 +90,7 @@ impl Setup {
     }
 
     /// Registers a strategy as the operator, expecting the bond pull to succeed.
-    fn register(&self, contract: &mut Proven) -> U256 {
+    fn register(&self, contract: &mut Covenant) -> U256 {
         self.vm.set_sender(self.operator);
         self.mock_transfer_from(self.operator, self.bond);
         contract
@@ -108,7 +108,7 @@ fn sol_data_bool(v: bool) -> Vec<u8> {
 fn constructor_sets_config_and_rejects_zero_inputs() {
     let s = Setup::new();
     s.vm.set_sender(s.admin);
-    let mut contract = Proven::from(&s.vm);
+    let mut contract = Covenant::from(&s.vm);
 
     assert!(contract
         .constructor(Address::ZERO, s.resolver, s.bond, s.stake, U64::from(WINDOW))
@@ -177,7 +177,7 @@ fn paused_contract_rejects_registration() {
     s.mock_transfer_from(s.operator, s.bond);
     assert!(matches!(
         contract.register_strategy("x".into(), "y".into()),
-        Err(ProvenError::ContractPaused(ContractPaused {}))
+        Err(CovenantError::ContractPaused(ContractPaused {}))
     ));
     s.vm.set_sender(s.admin);
     contract.unpause().expect("unpause");
@@ -195,14 +195,14 @@ fn commit_epoch_requires_owner_and_sequential_epochs() {
     s.vm.set_sender(s.challenger);
     assert!(matches!(
         contract.commit_epoch(id, U64::from(0), i256(1000), I256::ZERO, B256::ZERO, "".into()),
-        Err(ProvenError::NotStrategyOwner(NotStrategyOwner {}))
+        Err(CovenantError::NotStrategyOwner(NotStrategyOwner {}))
     ));
 
     // Owner cannot skip epochs.
     s.vm.set_sender(s.operator);
     assert!(matches!(
         contract.commit_epoch(id, U64::from(1), i256(1000), I256::ZERO, B256::ZERO, "".into()),
-        Err(ProvenError::EpochNotSequential(EpochNotSequential {}))
+        Err(CovenantError::EpochNotSequential(EpochNotSequential {}))
     ));
 
     // Sequential commit succeeds; unknown strategy rejected.
@@ -211,7 +211,7 @@ fn commit_epoch_requires_owner_and_sequential_epochs() {
         .is_ok());
     assert!(matches!(
         contract.commit_epoch(U256::from(99), U64::from(0), i256(1), I256::ZERO, B256::ZERO, "".into()),
-        Err(ProvenError::StrategyNotFound(StrategyNotFound {}))
+        Err(CovenantError::StrategyNotFound(StrategyNotFound {}))
     ));
 }
 
@@ -229,7 +229,7 @@ fn finalize_applies_performance_accounting() {
     // Cannot finalize inside the challenge window.
     assert!(matches!(
         contract.finalize_epoch(id, U64::from(0)),
-        Err(ProvenError::ChallengeWindowActive(ChallengeWindowActive {}))
+        Err(CovenantError::ChallengeWindowActive(ChallengeWindowActive {}))
     ));
 
     // Epoch 1: equity 1200 after a net deposit of 100. PnL = 1200 - 1000 - 100 = 100.
@@ -297,7 +297,7 @@ fn challenge_and_upheld_resolution_slashes_operator() {
     s.vm.set_sender(s.operator);
     assert!(matches!(
         contract.commit_epoch(id, U64::from(1), i256(1), I256::ZERO, B256::ZERO, "".into()),
-        Err(ProvenError::StrategySuspended(StrategySuspended {}))
+        Err(CovenantError::StrategySuspended(StrategySuspended {}))
     ));
 }
 
@@ -328,7 +328,7 @@ fn dismissed_challenge_forfeits_stake_and_finalizes_epoch() {
     s.mock_transfer_from(s.challenger, s.stake);
     assert!(matches!(
         contract.challenge_epoch(id, U64::from(0), "again".into()),
-        Err(ProvenError::EpochNotPending(EpochNotPending {}))
+        Err(CovenantError::EpochNotPending(EpochNotPending {}))
     ));
 }
 
@@ -347,7 +347,7 @@ fn challenge_after_window_is_rejected() {
     s.mock_transfer_from(s.challenger, s.stake);
     assert!(matches!(
         contract.challenge_epoch(id, U64::from(0), "too late".into()),
-        Err(ProvenError::ChallengeWindowElapsed(ChallengeWindowElapsed {}))
+        Err(CovenantError::ChallengeWindowElapsed(ChallengeWindowElapsed {}))
     ));
 }
 

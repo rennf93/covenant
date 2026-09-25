@@ -10,7 +10,7 @@ importers:
 
   indexer:
     dependencies:
-      '@proven/sdk':
+      '@covenant/sdk':
         specifier: workspace:*
         version: link:../sdk
       viem:
@@ -39,7 +39,7 @@ importers:
 
   web:
     dependencies:
-      '@proven/sdk':
+      '@covenant/sdk':
         specifier: workspace:*
         version: link:../sdk
       next:

@@ -10,7 +10,7 @@ import {
   type Transport,
   type WalletClient,
 } from "viem";
-import { provenAbi } from "./abi.js";
+import { covenantAbi } from "./abi.js";
 import type { CommitPayload } from "./epoch.js";
 
 /**
@@ -56,7 +56,7 @@ export interface CheckpointInfo {
   stake: bigint;
 }
 
-export interface ProvenConfig {
+export interface CovenantConfig {
   admin: Address;
   resolver: Address;
   usdg: Address;
@@ -67,8 +67,8 @@ export interface ProvenConfig {
   treasury: bigint;
 }
 
-/** Read-only access to a deployed Proven contract. */
-export class ProvenReader {
+/** Read-only access to a deployed Covenant contract. */
+export class CovenantReader {
   readonly address: Address;
   readonly client: PublicClient;
 
@@ -77,14 +77,14 @@ export class ProvenReader {
     this.client = client;
   }
 
-  static create(address: Address, chain: Chain, rpcUrl: string): ProvenReader {
-    return new ProvenReader(address, createPublicClient({ chain, transport: http(rpcUrl) }));
+  static create(address: Address, chain: Chain, rpcUrl: string): CovenantReader {
+    return new CovenantReader(address, createPublicClient({ chain, transport: http(rpcUrl) }));
   }
 
-  async config(): Promise<ProvenConfig> {
+  async config(): Promise<CovenantConfig> {
     const raw = await this.client.readContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "config",
     });
     const [admin, resolver, usdg, bondAmount, challengeStake, challengeWindow, paused, treasury] =
@@ -95,7 +95,7 @@ export class ProvenReader {
   async strategyCount(): Promise<bigint> {
     return (await this.client.readContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "strategyCount",
     })) as bigint;
   }
@@ -103,7 +103,7 @@ export class ProvenReader {
   async getStrategy(strategyId: bigint): Promise<StrategyInfo> {
     const raw = (await this.client.readContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "getStrategy",
       args: [strategyId],
     })) as readonly [Address, string, string, bigint, number, bigint];
@@ -114,7 +114,7 @@ export class ProvenReader {
   async getPerformance(strategyId: bigint): Promise<PerformanceInfo> {
     const raw = (await this.client.readContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "getPerformance",
       args: [strategyId],
     })) as readonly [bigint, bigint, bigint, bigint, bigint];
@@ -125,7 +125,7 @@ export class ProvenReader {
   async getCheckpoint(strategyId: bigint, epochIndex: bigint): Promise<CheckpointInfo> {
     const raw = (await this.client.readContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "getCheckpoint",
       args: [strategyId, epochIndex],
     })) as readonly [bigint, bigint, `0x${string}`, string, number, bigint, Address, bigint];
@@ -153,14 +153,14 @@ export class ProvenReader {
     return (await this.client.call({
       to: this.address,
       data: encodeFunctionData({
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "verifyReceipt",
         args: [strategyId, epochIndex, [...proof], receipt],
       }),
     }).then((r) => {
       if (!r.data) throw new Error("verifyReceipt call returned no data");
       return decodeFunctionResult({
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "verifyReceipt",
         data: r.data,
       });
@@ -178,15 +178,15 @@ export class ProvenReader {
  * Operator client: sends commits and lifecycle transactions from a wallet.
  * The wallet must have approved the USDG bond before registerStrategy.
  */
-export class ProvenOperator {
+export class CovenantOperator {
   readonly address: Address;
   readonly wallet: WalletClient;
-  readonly reader: ProvenReader;
+  readonly reader: CovenantReader;
 
   constructor(address: Address, wallet: WalletClient, publicClient: PublicClient) {
     this.address = address;
     this.wallet = wallet;
-    this.reader = new ProvenReader(address, publicClient);
+    this.reader = new CovenantReader(address, publicClient);
   }
 
   async registerStrategy(args: {
@@ -196,7 +196,7 @@ export class ProvenOperator {
   }): Promise<{ hash: `0x${string}` }> {
     const hash = await this.wallet.writeContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "registerStrategy",
       args: [args.name, args.metadataUri],
       account: args.account,
@@ -217,7 +217,7 @@ export class ProvenOperator {
     const { payload } = args;
     const hash = await this.wallet.writeContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "commitEpoch",
       args: [
         payload.strategyId,
@@ -241,7 +241,7 @@ export class ProvenOperator {
   }): Promise<{ hash: `0x${string}` }> {
     const hash = await this.wallet.writeContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "finalizeEpoch",
       args: [args.strategyId, args.epochIndex],
       account: args.account,
@@ -259,7 +259,7 @@ export class ProvenOperator {
   }): Promise<{ hash: `0x${string}` }> {
     const hash = await this.wallet.writeContract({
       address: this.address,
-      abi: provenAbi,
+      abi: covenantAbi,
       functionName: "challengeEpoch",
       args: [args.strategyId, args.epochIndex, args.reason],
       account: args.account,

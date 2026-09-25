@@ -60,8 +60,8 @@ def main() -> None:
                     help="disable the trade websocket, poll spot instead")
     ap.add_argument("--seed", type=str, default=datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
     ap.add_argument("--attest", action="store_true",
-                    help="opt in to Proven attestation (ledger-only unless the"
-                         " PROVEN_RPC_URL/KEY/CONTRACT env trio is also set)")
+                    help="opt in to Covenant attestation (ledger-only unless the"
+                         " COVENANT_RPC_URL/KEY/CONTRACT env trio is also set)")
     a = ap.parse_args()
 
     out_dir = Path("out") / f"live-{a.seed}"
@@ -82,7 +82,7 @@ def main() -> None:
     last_volume_fetch = 0.0
     tick_counter = 0
 
-    # Proven attestation: opt-in via PROVEN_ATTEST=1 or --attest. Entirely
+    # Covenant attestation: opt-in via COVENANT_ATTEST=1 or --attest. Entirely
     # disabled = no attestor, no fill observer, byte-identical legacy run.
     cfg = AttestationConfig.from_env()
     if a.attest:
@@ -93,8 +93,8 @@ def main() -> None:
     strategy_name = ""
     if cfg.enabled:
         venue = make_venue()  # paper by default; class + instrument go into receipts
-        strategy_id = int(os.environ.get("PROVEN_STRATEGY_ID", "0"))
-        strategy_name = os.environ.get("PROVEN_STRATEGY_NAME", "vouch-sol")
+        strategy_id = int(os.environ.get("COVENANT_STRATEGY_ID", "0"))
+        strategy_name = os.environ.get("COVENANT_STRATEGY_NAME", "vouch-sol")
         attestor = Attestor(cfg, run_dir=out_dir, strategy_id=strategy_id,
                             venue=venue.receipt_venue, instrument=venue.instrument)
         ledger = attestor.start_epoch(epoch_index)

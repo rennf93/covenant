@@ -1,10 +1,10 @@
 import { createPublicClient, decodeEventLog, http, type Address, type Chain, type Log } from "viem";
-import { provenAbi } from "@proven/sdk";
-import { applyEvent, emptyState, invariantsHold, type DecodedEvent, type ProvenState } from "./state.js";
+import { covenantAbi } from "@covenant/sdk";
+import { applyEvent, emptyState, invariantsHold, type DecodedEvent, type CovenantState } from "./state.js";
 
 /**
- * Log transport: polls getLogs for the Proven contract over block ranges and
- * folds decoded events into a ProvenState. The reducer stays pure; this module
+ * Log transport: polls getLogs for the Covenant contract over block ranges and
+ * folds decoded events into a CovenantState. The reducer stays pure; this module
  * is the only RPC-aware piece besides main.ts.
  */
 
@@ -29,7 +29,7 @@ interface ResolvedOptions {
 }
 
 export class Indexer {
-  readonly state: ProvenState;
+  readonly state: CovenantState;
   private readonly client: ReturnType<typeof createPublicClient>;
   private readonly opts: ResolvedOptions;
   private running = false;
@@ -83,10 +83,10 @@ export class Indexer {
   }
 }
 
-/** Decodes a raw log against the Proven ABI; unknown events map to null. */
+/** Decodes a raw log against the Covenant ABI; unknown events map to null. */
 export function decodeLog(log: Log): DecodedEvent | null {
   try {
-    const decoded = decodeEventLog({ abi: provenAbi, data: log.data, topics: log.topics, strict: false });
+    const decoded = decodeEventLog({ abi: covenantAbi, data: log.data, topics: log.topics, strict: false });
     return {
       eventName: decoded.eventName,
       args: decoded.args as Record<string, unknown>,

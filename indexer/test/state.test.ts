@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { keccak256, toHex, zeroAddress, type Address } from "viem";
-import { provenAbi } from "@proven/sdk";
-import { applyEvent, emptyState, invariantsHold, type DecodedEvent, type ProvenState } from "../src/state.js";
+import { covenantAbi } from "@covenant/sdk";
+import { applyEvent, emptyState, invariantsHold, type DecodedEvent, type CovenantState } from "../src/state.js";
 
 const CONTRACT = "0x00000000000000000000000000000000000000c0" as Address;
 const OPERATOR = "0x0000000000000000000000000000000000000002" as Address;
@@ -17,7 +17,7 @@ function emit(name: string, args: Record<string, unknown>, blockNumber = 1n): De
   return { eventName: name, args, blockNumber };
 }
 
-function makeState(): ProvenState {
+function makeState(): CovenantState {
   return emptyState(CONTRACT);
 }
 

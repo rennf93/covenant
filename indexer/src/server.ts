@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { ProvenState, StrategyView } from "./state.js";
+import type { CovenantState, StrategyView } from "./state.js";
 
 /**
  * JSON API over indexed state.
@@ -36,7 +36,7 @@ function leaderboardRow(s: StrategyView) {
   };
 }
 
-export function startApi(state: ProvenState, port: number): Server {
+export function startApi(state: CovenantState, port: number): Server {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/health") {

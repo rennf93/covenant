@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir laya httpx
 
 COPY vouch/ vouch/
 ENV VOUCH_S1_PROVIDER=local
-ENV PROVEN_ATTEST=1
+ENV COVENANT_ATTEST=1
 
 # Attested shadow mode: live prices, paper money, receipts + evidence on the
 # mounted volume. Real-money mode stays out of the container on purpose: a

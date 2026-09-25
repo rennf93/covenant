@@ -1,9 +1,9 @@
-# HANDOFF: Proven x jev-trading (now "Vouch") (Arbitrum Open House Singapore Buildathon)
+# HANDOFF: Covenant x jev-trading (now "Vouch") (Arbitrum Open House Singapore Buildathon)
 
 Written 2026-09-25. Read this before touching anything.
 
 **STATUS UPDATE (same day): the fork is DONE and lives in this repo at
-`vouch/`.** The vouch agent copy was moved INTO the proven repo (per the user; one
+`vouch/`.** The vouch agent copy was moved INTO the covenant repo (per the user; one
 submission repo) at `vouch/` with the package renamed only in product terms:
 run scripts at `vouch/run_*.py`, package `vouch/vouch/`, attestation at
 `vouch/attest/` (pure-python keccak + canonical receipts + merkle, all
@@ -11,10 +11,10 @@ fixture-conformed to the SDK, 10 tests green: `cd vouch && python3 -m
 unittest discover -s tests`). Dual venue is in `vouch/vouch/execution.py`
 (paper / coinbase / arb-paper; arb-paper is the honest "Arbitrum DEX paper
 venue" priced from the live feed, booking venue class ArbitrumDex). Shadow
-wiring is done: `run_shadow.py --attest` (or PROVEN_ATTEST=1) records receipts
+wiring is done: `run_shadow.py --attest` (or COVENANT_ATTEST=1) records receipts
 per fill, closes an epoch at each System-2 boundary (epoch 0 netFlow carries
 the seed capital), and writes evidence bundles; chain commits fire only when
-PROVEN_RPC_URL/PRIVATE_KEY/CONTRACT_ADDRESS are all set (ledger-only mode
+COVENANT_RPC_URL/PRIVATE_KEY/CONTRACT_ADDRESS are all set (ledger-only mode
 otherwise). The node bridge is `vouch/attest/bridge.mjs` (viem resolved via
 the sdk package; actions register/commit/finalize/verify). REMAINING: funded
 Arbitrum Sepolia key -> deploy (section "Deployment"), register the strategy,
@@ -56,7 +56,7 @@ The event page + judging details are visible on the HackQuest page when logged
 in: https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon
 (The user's HackQuest session is/was logged into the ZCode in-app browser.)
 
-## 2. The project: "Proven"
+## 2. The project: "Covenant"
 
 Onchain proof-of-performance for trading strategies. Strategies commit
 sequential epoch checkpoints (ending equity in USDG, net external flows, and a
@@ -76,20 +76,20 @@ policed, not pretending to be omniscient).
 
 ## 3. What is already built (all committed, all green)
 
-Repo: /Users/renzof/Documents/GitHub/ZZZ/proven (git, 6 commits, branch main).
+Repo: /Users/renzof/Documents/GitHub/ZZZ/covenant (git, 6 commits, branch main).
 
 | Component | Status | Tests |
 | --- | --- | --- |
-| `contracts/proven/` Stylus contract (Rust) | complete | 11/11 (mock VM), wasm32 release build verified, ABI at `abi/IProven.sol` |
+| `contracts/covenant/` Stylus contract (Rust) | complete | 11/11 (mock VM), wasm32 release build verified, ABI at `abi/ICovenant.sol` |
 | `contracts/merkle-core/` shared Merkle/receipt primitives | complete | 5/5 + 1 cross-language fixture suite |
 | `sdk/` TypeScript SDK (receipts, merkle, epoch builder, RPC clients) | complete | 8/8 |
 | `indexer/` event reducer + RPC transport + JSON API | complete | 5/5 |
 | `web/` Next.js leaderboard + browser-side receipt verifier | complete | `next build` passes |
 
 All suites run via: `pnpm -r test` (workspace root), and
-`cargo test` inside `contracts/proven`.
+`cargo test` inside `contracts/covenant`.
 
-Contract surface (see `contracts/proven/abi/IProven.sol`):
+Contract surface (see `contracts/covenant/abi/ICovenant.sol`):
 - `registerStrategy(name, metadataURI)` - pulls USDG bond, assigns sequential id.
 - `commitEpoch(strategyId, epochIndex, equity, netFlow, tradesRoot, evidenceURI)`
   - owner-only, strictly sequential epochs, strictly increasing timestamps.
@@ -129,13 +129,13 @@ Protocol invariants worth knowing (all enforced/tested):
   context for mutating calls is `Call::new_mutating(self)`.
 - Events: define in `sol!`, emit with `self.vm().log(EventStruct { .. })`
   (LogAccess from prelude).
-- sol! error types have no Debug; ProvenError has a manual Debug impl.
+- sol! error types have no Debug; CovenantError has a manual Debug impl.
 - Testing: dev-dependency `stylus-sdk = { features = ["stylus-test"] }` is
   REQUIRED or native tests fail to link. Mock VM: `TestVM::new()`, then
   `vm.set_sender`, `vm.set_block_timestamp`, and `vm.mock_call(target, calldata,
   value, Ok(ret))` where calldata must be byte-identical to what sol_interface
   encodes (tests build it via a mirrored sol! interface + SolCall::abi_encode).
-- rust-toolchain.toml pins 1.91.0 + wasm32 target inside contracts/proven;
+- rust-toolchain.toml pins 1.91.0 + wasm32 target inside contracts/covenant;
   merkle-core must stay on alloy-primitives 1.x to match the contract crate.
 - pnpm v11: onlyBuiltDependencies moved to pnpm-workspace.yaml (root has it).
   TS packages compile to dist (tsc) and tests run on dist; imports in TS use
@@ -146,7 +146,7 @@ Protocol invariants worth knowing (all enforced/tested):
 Original repo: /Users/renzof/Documents/GitHub/ZZZ/side projects/jev-trading (now "Vouch")
 **IMPORTANT: do not touch the original. Another session may still be working on
 it. COPY it to a new directory (suggest "side projects/<new-name>", pick a good
-product name; the platform itself is called "Proven") and work only in the copy.**
+product name; the platform itself is called "Covenant") and work only in the copy.**
 
 What jev-trading (now "Vouch") is today (README is accurate):
 - Two-model loop: laya (fast non-autoregressive model, HTTP server) as System-1
@@ -161,8 +161,8 @@ What jev-trading (now "Vouch") is today (README is accurate):
   market, rules, session, system1, system2}.py. Clean abstractions: the venue
   is already behind an adapter (PaperVenue / make_venue).
 - Honest state: no trading edge demonstrated yet (flat). That is FINE for the
-  hackathon: Proven's product is truthful verification, not alpha. Pitch:
-  "flat PnL proven onchain is exactly what buyers need to see" - the ledger
+  hackathon: Covenant's product is truthful verification, not alpha. Pitch:
+  "flat PnL covenant onchain is exactly what buyers need to see" - the ledger
   exposes bad strategies as reliably as good ones.
 
 ### The integration (spec also in docs/DESIGN.md section 9)
@@ -186,7 +186,7 @@ What jev-trading (now "Vouch") is today (README is accurate):
      fixtures MUST be shared.
    - `commit.py`: at epoch close build the tree, convert equity to USDG terms
      (closing mark), call commitEpoch via the SDK operator client
-     (sdk/dist/src/client.js ProvenOperator; needs a funded EOA key in env),
+     (sdk/dist/src/client.js CovenantOperator; needs a funded EOA key in env),
      publish evidence bundle (receipts + proofs JSON) to evidence_uri, then
      verify one receipt back onchain as a self-audit.
    - Safety interlocks mirror jev's existing rails: onchain commits allowed in
@@ -204,7 +204,7 @@ What jev-trading (now "Vouch") is today (README is accurate):
   faucet availability - if the Paxos test token is unobtainable, deploying a
   6-decimal mock USDG for staging is acceptable IF clearly labeled and the
   mainnet submission plan uses real USDG; flag it to the user either way).
-- Deploy: `cd contracts/proven && cargo stylus deploy --network sepolia
+- Deploy: `cd contracts/covenant && cargo stylus deploy --network sepolia
   --constructor-args <USDG> <RESOLVER> <BOND> <STAKE> <WINDOW>` (see README).
 - Then: indexer with RPC_URL/CONTRACT_ADDRESS/CHAIN/START_BLOCK, web with
   INDEXER_URL/NEXT_PUBLIC_* (env names in indexer/src/main.ts and web/lib/api.ts).
@@ -244,10 +244,10 @@ What jev-trading (now "Vouch") is today (README is accurate):
 
 ## 7. Verify-your-start checklist for the next session
 
-1. `cd /Users/renzof/Documents/GitHub/ZZZ/proven && git log --oneline` - expect
+1. `cd /Users/renzof/Documents/GitHub/ZZZ/covenant && git log --oneline` - expect
    6-7 commits ending at the vouch adapter spec.
 2. `pnpm install && pnpm -r test` - expect sdk 8/8, indexer 5/5.
-3. `cd contracts/proven && cargo test` - expect 11/11.
-4. `pnpm --filter @proven/web run build` - expect clean build.
+3. `cd contracts/covenant && cargo test` - expect 11/11.
+4. `pnpm --filter @covenant/web run build` - expect clean build.
 5. Read docs/DESIGN.md sections 3 and 9. Then check whether the other session
    is done with jev-trading (now "Vouch") (git log there / ask the user) before copying it.

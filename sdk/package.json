@@ -1,7 +1,7 @@
 {
-  "name": "@proven/sdk",
+  "name": "@covenant/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for Proven: onchain proof-of-performance for trading strategies",
+  "description": "TypeScript SDK for Covenant: onchain proof-of-performance for trading strategies",
   "type": "module",
   "main": "./dist/src/index.js",
   "scripts": {

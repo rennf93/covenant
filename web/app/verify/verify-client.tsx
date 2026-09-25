@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createPublicClient, http, type Address, type Chain } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
-import { provenAbi } from "@proven/sdk";
+import { covenantAbi } from "@covenant/sdk";
 
 /**
  * Client-side onchain verification: calls the contract's verifyReceipt view
@@ -50,7 +50,7 @@ export default function VerifyClient() {
       const client = createPublicClient({ chain, transport: http(rpc) });
       const verified = (await client.readContract({
         address: contract,
-        abi: provenAbi,
+        abi: covenantAbi,
         functionName: "verifyReceipt",
         args: [BigInt(strategyId), BigInt(epochIndex), proof, receipt.trim() as `0x${string}`],
       })) as boolean;
