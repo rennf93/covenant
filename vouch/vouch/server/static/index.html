@@ -81,6 +81,8 @@
     </div>
     <label>model id (openrouter only, e.g. openai/gpt-4o-mini)</label>
     <input id="r_s1_model">
+    <label>checkpoint pin (server provider; empty = auto-route)</label>
+    <input id="r_s1_checkpoint" placeholder="english | typed-decisions | your-fine-tuned">
     <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
       <button onclick="probeS1()">Check server health</button>
       <span class="kv" id="s1health"></span>

@@ -39,6 +39,13 @@ class S1Settings(_FrozenSettings):
     base_url: str = Field(
         default="https://openrouter.ai/api/v1", validation_alias="VOUCH_S1_BASE_URL"
     )
+    # Server checkpoint pin (english | multilingual | typed-decisions). Empty
+    # means server-side auto-routing, which routes by text language and can
+    # silently answer from a checkpoint that has never seen trading data
+    # (verified live: auto-route serves `english` to vouch). Set
+    # VOUCH_S1_CHECKPOINT once a trading-trained checkpoint is being served;
+    # the backend then warns when routing disagrees.
+    checkpoint: str = Field(default="", validation_alias="VOUCH_S1_CHECKPOINT")
     # Calibration file System-1 gates entries on (written by run_analysis.py
     # --fit). Legacy var name preserved: VOUCH_CALIBRATION.
     calibration: str = Field(default="out/calibration.json", validation_alias="VOUCH_CALIBRATION")

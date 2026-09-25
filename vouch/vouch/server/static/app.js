@@ -411,6 +411,7 @@ function openSettings() {
   $("cfg_fee").value = cfg.fee_bps; $("cfg_product").value = cfg.product;
   $("r_s1_provider").value = cfg.s1.provider;
   $("r_s1_url").value = cfg.s1.url; $("r_s1_model").value = cfg.s1.model;
+  $("r_s1_checkpoint").value = cfg.s1.checkpoint || "";
   $("r_s1_api_key").value = cfg.s1.api_key;
   $("r_s2_base_url").value = cfg.s2.base_url; $("r_s2_model").value = cfg.s2.model;
   $("r_s2_api_key").value = cfg.s2.api_key;
@@ -433,7 +434,8 @@ async function probeS1() {
   try {
     // save current s1 fields first so the probe reflects what you typed
     const s1 = {provider: $("r_s1_provider").value, url: $("r_s1_url").value,
-                model: $("r_s1_model").value, api_key: $("r_s1_api_key").value};
+                model: $("r_s1_model").value, api_key: $("r_s1_api_key").value,
+                checkpoint: $("r_s1_checkpoint").value};
     await api("/api/config", {method: "PUT", body: {config: {s1}}});
     const h = await api("/api/s1/health");
     $("s1health").innerHTML = h.probe && h.probe.status === "ok"
@@ -456,7 +458,8 @@ async function saveSettings() {
       cfg.defaults[mode][k] = isNaN(parseFloat(v)) || typeof d[k] === "string" ? v : parseFloat(v); }); });
   cfg.fee_bps = parseFloat($("cfg_fee").value); cfg.product = $("cfg_product").value;
   cfg.s1 = {provider: $("r_s1_provider").value, url: $("r_s1_url").value.trim(),
-            model: $("r_s1_model").value.trim(), api_key: $("r_s1_api_key").value};
+            model: $("r_s1_model").value.trim(), api_key: $("r_s1_api_key").value,
+            checkpoint: $("r_s1_checkpoint").value.trim()};
   cfg.s2 = {base_url: $("r_s2_base_url").value.trim(), model: $("r_s2_model").value.trim(),
             api_key: $("r_s2_api_key").value};
   try { await api("/api/config", {method: "PUT", body: {config: cfg}}); toast("saved"); $("cfgerr").style.display = "none"; closeSettings(); refresh(); }

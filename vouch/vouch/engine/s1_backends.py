@@ -68,14 +68,32 @@ class LocalLayaBackend:
 
 
 class LayaServerBackend:
-    """Client for a laya HTTP server (laya.serve): POST /v1/systemone."""
+    """Client for a laya HTTP server (laya.serve): POST /v1/systemone.
+
+    `checkpoint` pins the served checkpoint (english | multilingual |
+    typed-decisions). Auto-routing routes by text language, which silently
+    serves the base `english` checkpoint to vouch - near-chance zero-shot on
+    typed decisions. Provenance: the first reply's routing.model is checked
+    against the pin and logged once; a mismatch after that is a per-call
+    warning, because every probability downstream was produced by whatever
+    checkpoint actually answered.
+    """
 
     name = "server"
 
-    def __init__(self, url: str, api_key: str = "", timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        url: str,
+        api_key: str = "",
+        timeout: float = 120.0,
+        checkpoint: str = "",
+    ) -> None:
         self.url = url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
+        self.checkpoint = checkpoint
+        self.routed_model: str | None = None
+        self._provenance_logged = False
 
     def health(self) -> dict | None:
         try:
@@ -88,10 +106,13 @@ class LayaServerBackend:
 
     def predict(self, state: dict, questions: dict) -> dict:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        payload: dict = {"state": state, "questions": questions}
+        if self.checkpoint:
+            payload["model"] = self.checkpoint
         try:
             r = httpx.post(
                 f"{self.url}/v1/systemone",
-                json={"state": state, "questions": questions},
+                json=payload,
                 headers=headers,
                 timeout=self.timeout,
             )
@@ -106,7 +127,30 @@ class LayaServerBackend:
         res: dict = r.json()
         if "answers" not in res:
             raise BackendError(f"laya server reply missing 'answers': {str(res)[:200]}")
+        self._check_provenance(res)
         return res
+
+    def _check_provenance(self, res: dict) -> None:
+        from vouch.logging import get_logger
+
+        routed = (res.get("routing") or {}).get("model")
+        if routed:
+            self.routed_model = routed
+        if not self._provenance_logged:
+            self._provenance_logged = True
+            expected = self.checkpoint or "auto-route"
+            get_logger(__name__).info(
+                "laya checkpoint answering System-1: %s (requested: %s)",
+                routed or "unknown",
+                expected,
+            )
+        if self.checkpoint and routed and routed != self.checkpoint:
+            get_logger(__name__).warning(
+                "laya served checkpoint %s but %s was pinned; "
+                "these probabilities are from a different model",
+                routed,
+                self.checkpoint,
+            )
 
 
 # --- OpenRouter (OpenAI-compatible chat) ------------------------------------
@@ -187,16 +231,25 @@ def parse_answers(reply: dict, questions: dict) -> dict:
             keys = (
                 list(criteria.keys()) if isinstance(criteria, dict) else ["long", "flat", "short"]
             )
-            choice = given.get("choice", keys[0])
+            # Neutral default is "flat" when the question has one: an
+            # unparseable or missing answer must never read as a trade signal.
+            default = "flat" if "flat" in keys else keys[0]
+            choice = given.get("choice", default)
             if choice not in keys:
-                choice = keys[0]
+                choice = default
             probs = {k: _clamp01(given.get("probabilities", {}).get(k)) for k in keys}
             total = sum(probs.values())
             if total <= 0:
                 probs = {k: 1.0 / len(keys) for k in keys}
             else:
                 probs = {k: v / total for k, v in probs.items()}
-            answers[qname] = {"choice": choice, "probabilities": probs}
+            # answer_confidence parity with the laya backends: max option p is
+            # the calibrated confidence downstream analysis expects.
+            answers[qname] = {
+                "choice": choice,
+                "probabilities": probs,
+                "answer_confidence": max(probs.values()),
+            }
         elif qtype == "score":
             n = len(criteria) if isinstance(criteria, list) else 5
             try:
@@ -278,7 +331,7 @@ def make_s1_backend() -> System1Backend:
     if provider == "server":
         if not s1.url:
             raise BackendError("provider 'server' needs VOUCH_S1_URL, e.g. http://127.0.0.1:9989")
-        return LayaServerBackend(s1.url, api_key=s1.api_key)
+        return LayaServerBackend(s1.url, api_key=s1.api_key, checkpoint=s1.checkpoint)
     if provider == "openrouter":
         return OpenRouterBackend(
             api_key=s1.api_key,

@@ -93,6 +93,15 @@ class System1:
                 "type": "noul",
                 "instructions": "Given `position` and `recent_trades`, is opening a NEW "
                 "position right now justified?",
+                # Explicit criteria: the english checkpoint has a documented
+                # label-following failure on bare true/false options (upstream
+                # #156), so both sides get a description the model can judge on.
+                "criteria": {
+                    "false": "stand down: the trade history or open position argues "
+                    "against adding risk right now",
+                    "true": "nothing in the position or trade history argues against "
+                    "opening a new position now",
+                },
             },
         }
         res = self.router.predict(state, questions)
@@ -107,6 +116,10 @@ class System1:
         conviction = float(answers["conviction"]["score"]) / 4.0
         enter_p = 1.0 - p_flat  # "pressure to be in a trade", 0..1
         noul = float(answers["enter_now"]["noul"])  # kept for analysis
+        # max(option p): the quantity temperature scaling actually fits
+        # (answer_confidence). The sibling `confidence` field is normalized
+        # entropy and is NOT calibrated; never gate on it.
+        action_conf = float(answers["action"].get("answer_confidence", 0.0))
 
         ok = True
         veto = None
@@ -136,6 +149,7 @@ class System1:
             "conviction": round(conviction, 3),
             "enter_p": round(enter_p, 3),
             "noul": round(noul, 3),
+            "action_conf": round(action_conf, 3),
             "probs": {k: float(v) for k, v in probs.items()},  # FULL vector, for analysis/SFT
             "final_action": direction if ok else "flat",
             "veto": veto,
@@ -154,6 +168,7 @@ class System1:
                 "conviction": 0.0,
                 "enter_p": None,
                 "noul": None,
+                "action_conf": 0.0,
                 "probs": {},
                 "final_action": "hold",
                 "veto": "position already closed (kill switch race)",
@@ -203,6 +218,7 @@ class System1:
             "conviction": round(exit_conviction, 3),
             "enter_p": round(1.0 - p_exit, 3),
             "noul": None,
+            "action_conf": round(float(answers["exit"].get("answer_confidence", 0.0)), 3),
             "probs": {k: float(v) for k, v in probs.items()},
             "final_action": "exit" if ok else "hold",
             "veto": None

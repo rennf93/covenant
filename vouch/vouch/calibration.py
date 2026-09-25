@@ -65,12 +65,32 @@ class Calibrator:
     ) -> Calibrator | None:
         """rows: dicts with conviction/enter_p/ls_spread and 'fwd_ret' precomputed.
         Label: fwd_ret > 0. Returns None if there is nothing to learn from."""
+        for r in rows:
+            if r.get("fwd_ret") is not None and "y" not in r:
+                r["y"] = 1.0 if r["fwd_ret"] > 0 else 0.0
+        return cls.fit_labeled(rows, l2=l2, lr=lr, epochs=epochs, meta={"horizon": horizon})
+
+    @classmethod
+    def fit_labeled(
+        cls,
+        rows: list[dict],
+        l2: float = 0.01,
+        lr: float = 0.1,
+        epochs: int = 300,
+        meta: dict | None = None,
+    ) -> Calibrator | None:
+        """rows carry conviction/enter_p/ls_spread and an explicit 'y' in {0,1}.
+
+        Used by run_calibration.py to fit on barrier labels (y = up-barrier
+        first) over tradeable rows only, where 'fwd_ret > 0' would be the
+        wrong question: the EV gate spends P(up-barrier-first), not
+        P(sign of the horizon return)."""
         X, y = [], []
         for r in rows:
-            if r.get("fwd_ret") is None:
+            if r.get("y") is None:
                 continue
             X.append([r.get("conviction", 0.0), r.get("enter_p", 0.0), r.get("ls_spread", 0.0)])
-            y.append(1.0 if r["fwd_ret"] > 0 else 0.0)
+            y.append(float(r["y"]))
         n_pos = sum(y)
         if len(y) < 100 or n_pos < 20 or n_pos > len(y) - 20:
             return None  # not enough data, or no class balance to learn from
@@ -102,15 +122,13 @@ class Calibrator:
 
         weights = {name: w[j] for j, name in enumerate(FEATURES)}
         # fold standardization back into a single linear map for inference
-        std_bias = b - sum(weights[FEATURES[j]] * means[j] / scales[j] for j in range(n_f))
         fold_w = {FEATURES[j]: weights[FEATURES[j]] / scales[j] for j in range(n_f)}
-        return cls(
-            fold_w,
-            std_bias,
-            {
-                "n_samples": n,
-                "n_pos": int(n_pos),
-                "horizon": horizon,
-                "feature_order": FEATURES,
-            },
-        )
+        std_bias = b - sum(fold_w[FEATURES[j]] * means[j] for j in range(n_f))
+        out_meta = {
+            "n_samples": n,
+            "n_pos": int(n_pos),
+            "feature_order": FEATURES,
+        }
+        if meta:
+            out_meta.update(meta)
+        return cls(fold_w, std_bias, out_meta)

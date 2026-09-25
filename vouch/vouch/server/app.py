@@ -55,6 +55,7 @@ DEFAULT_CONFIG = {
         "provider": "local",  # local | server | openrouter
         "url": "http://127.0.0.1:9989",
         "model": "",  # openrouter model id
+        "checkpoint": "",  # server checkpoint pin (empty = auto-route)
         "api_key": "",  # server bearer key OR openrouter key
     },
     "s2": {
@@ -211,6 +212,7 @@ def _build_run(mode: str, params: dict, cfg: dict) -> tuple[str, list[str], dict
     env["VOUCH_S1_URL"] = s1["url"]
     env["VOUCH_S1_API_KEY"] = s1["api_key"]
     env["VOUCH_S1_MODEL"] = s1["model"]
+    env["VOUCH_S1_CHECKPOINT"] = s1.get("checkpoint", "")
     s2 = cfg["s2"]
     if s2["base_url"]:
         env["VOUCH_S2_BASE_URL"] = s2["base_url"]

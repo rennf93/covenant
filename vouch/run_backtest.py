@@ -33,6 +33,13 @@ if __name__ == "__main__":
     )
     ap.add_argument("--tag", type=str, default=None)
     ap.add_argument("--no-s2", action="store_true", help="skip System-2 rewrites")
+    ap.add_argument(
+        "--data-harvest",
+        action="store_true",
+        help="force-close positions after entry so every tick stays a flat-state "
+        "ENTRY decision: maximum state diversity for calibration/SFT; PnL is "
+        "meaningless in this mode",
+    )
     a = ap.parse_args()
 
     if a.fee_bps is not None:
@@ -48,5 +55,6 @@ if __name__ == "__main__":
         tag=a.tag,
         warmup=a.warmup,
         use_s2=not a.no_s2,
+        data_harvest=a.data_harvest,
     )
     print(json.dumps(summary, indent=2))

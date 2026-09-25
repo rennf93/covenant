@@ -40,7 +40,12 @@ def run_backtest(
     tag: str | None = None,
     warmup: int = 60,
     use_s2: bool = True,
+    data_harvest: bool = False,
 ) -> dict:
+    """data_harvest: force-close any position right after it opens (and park
+    the kill-switch halt) so the loop keeps producing flat-state ENTRY
+    decisions over the whole history. This is a DATA mode: it maximizes
+    state diversity for calibration/SFT and its PnL is meaningless."""
     client = httpx.Client()
     bars = fetch_candles(client, product=product, minutes=minutes)
     client.close()
@@ -52,7 +57,7 @@ def run_backtest(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "candles.jsonl").write_text("".join(json.dumps(b.__dict__) + "\n" for b in bars))
 
-    broker = Broker(starting_cash=cash, max_drawdown_pct=0.20)
+    broker = Broker(starting_cash=cash, max_drawdown_pct=1.0 if data_harvest else 0.20)
     rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI)
     s1 = System1()
     decisions_log = out_dir / "decisions.jsonl"
@@ -94,6 +99,9 @@ def run_backtest(
             recent.append(
                 f"tick {i}: OPEN {d['final_action']} @ {price:.2f} (conv {d['conviction']:.2f})"
             )
+            if data_harvest:
+                broker.close(price, i, reason="HARVEST")
+                recent.append(f"tick {i}: HARVEST-CLOSE @ {price:.2f}")
 
         row = {
             "ts": datetime.fromtimestamp(bar.ts, tz=UTC).isoformat(),
@@ -132,7 +140,7 @@ def run_backtest(
 
     eq = broker.equity(bars[-1].close)
     summary = {
-        "mode": f"backtest {product} 1m candles",
+        "mode": f"backtest {product} 1m candles" + (" [data harvest]" if data_harvest else ""),
         "bars": len(bars) - warmup,
         "started": datetime.fromtimestamp(bars[warmup].ts, tz=UTC).isoformat(),
         "ended": datetime.fromtimestamp(bars[-1].ts, tz=UTC).isoformat(),
