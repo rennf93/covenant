@@ -242,7 +242,9 @@ VENUES: dict[str, dict] = {
         "factory": lambda product, max_usd: CoinbaseVenue(product, max_usd=max_usd),
     },
     "arb-paper": {
-        "factory": lambda product, max_usd: ArbPaperVenue(product),
+        # ArbPaperVenue only prices SOL/USDC (hardcoded spot source), so it
+        # ignores VOUCH_CB_PRODUCT and takes its natural instrument.
+        "factory": lambda product, max_usd: ArbPaperVenue("SOL/USDC"),
     },
 }
 

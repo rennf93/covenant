@@ -207,6 +207,13 @@ def _build_run(mode: str, params: dict, cfg: dict) -> tuple[str, list[str], dict
                "--seed", run_id]
         if not params.get("websocket", d.get("websocket", True)):
             cmd.append("--no-websocket")
+        # Attestation: PROVEN_* vars set on the SERVER process already reach
+        # the spawned run via env = os.environ.copy(); passing --attest here
+        # additionally lets a dashboard request (params.attest=true) switch a
+        # shadow run's receipts on. Ledger-only unless the full PROVEN_RPC_URL
+        # / PROVEN_PRIVATE_KEY / PROVEN_CONTRACT_ADDRESS trio is also set.
+        if params.get("attest"):
+            cmd.append("--attest")
     elif mode == "backtest":
         cmd = [py, "run_backtest.py",
                "--minutes", str(params.get("minutes", d["minutes"])),

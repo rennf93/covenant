@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -99,18 +100,25 @@ def main() -> None:
         ledger = attestor.start_epoch(epoch_index)
 
         def observe_fill(f: dict) -> None:
-            # Long-only bot: an open fill buys base, a close fill sells it
-            # back (closing a short would be a buy in base-asset terms, but
-            # this bot never shorts). venue_order_id is unique per run:
-            # seed-kind-tick, and one open or one close can happen per tick.
-            # parse_fixed8 accepts at most 8 fractional digits, so quantize
-            # the human-unit floats before handing them over.
+            # Side maps by POSITION DIRECTION, not by open/close: System-1
+            # can open shorts (rules.allowed_actions defaults to
+            # [long, flat, short]), so opening a short is a SELL of the base
+            # asset and closing it is a BUY. Only long open / long close
+            # map to BUY / SELL respectively. venue_order_id is unique per
+            # run: seed-kind-tick, and at most one open or one close can
+            # happen per tick (a stop-out close and a re-entry open on the
+            # same tick differ in kind, and broker.open/close no-op when a
+            # position already exists / is absent). parse_fixed8 accepts at
+            # most 8 fractional digits, so quantize the human-unit floats
+            # before handing them over; :.8f (not round()) so the repr can
+            # never land in scientific notation, which parse_fixed8 rejects.
+            is_buy = (f["kind"] == "open") == (f["side"] == "long")
             ledger.add_fill(
                 venue_order_id=f"{a.seed}-{f['kind']}-{f['tick']}",
-                side=receipts.SIDE_BUY if f["kind"] == "open" else receipts.SIDE_SELL,
-                size_base=round(f["size_usd"] / f["price"], 8),  # human base units (SOL)
-                price=round(f["price"], 8),
-                fee=round(f["fee"], 8),
+                side=receipts.SIDE_BUY if is_buy else receipts.SIDE_SELL,
+                size_base=f"{f['size_usd'] / f['price']:.8f}",  # human base units (SOL)
+                price=f"{f['price']:.8f}",
+                fee=f"{f['fee']:.8f}",
                 filled_at=int(time.time()),
             )
 
@@ -182,7 +190,16 @@ def main() -> None:
             epoch_start["equity"] = broker.equity(price)
             next_epoch = time.time() + a.epoch_minutes * 60
 
-        d = s1.decide(tick, broker, rules, recent)
+        # Transient System-1 failures (laya server hiccup, provider 5xx) must
+        # not kill a hours-long shadow run. The rails above (stop_check /
+        # mark / kill switch) already ran for this bar, so skipping only the
+        # discretionary decision is the safe degradation: hold, retry next bar.
+        try:
+            d = s1.decide(tick, broker, rules, recent)
+        except Exception as e:  # noqa: BLE001 - keep the loop alive
+            print(f"[{datetime.now():%H:%M:%S}] tick {tick_counter}: System-1 backend "
+                  f"failed ({type(e).__name__}: {e}); holding, retrying next bar")
+            return
         acted = None
         if d["mode"] == "exit" and d["final_action"] == "exit":
             broker.close(price, tick_counter, reason="LAYA_EXIT")
@@ -251,6 +268,31 @@ def main() -> None:
         if ws:
             ws.stop()
         agg.flush()
+        # Shutdown commit of the in-flight epoch. Every exit path lands here:
+        # the drawdown kill switch (which raises KeyboardInterrupt between
+        # epoch boundaries), a Ctrl-C, and plain deadline expiry. Without
+        # this, fills already fsynced into receipts-epoch-NNNN.jsonl would
+        # exist in the ledger with no closing commit/evidence bundle, i.e.
+        # receipts silently dropped. Commit with equity marked at the last
+        # observed price; on kill switch the position was already closed by
+        # broker.mark, so equity is realized cash. An empty ledger commits
+        # as ZERO32, matching the epoch-boundary path.
+        if ledger is not None and attestor is not None:
+            price = list(agg.bars)[-1].close if agg.bars else a.cash
+            net_flow = a.cash if epoch_index == 0 else 0
+            try:
+                res = attestor.commit_epoch(
+                    ledger,
+                    equity_usd=broker.equity(price),
+                    net_flow_usd=net_flow,
+                    strategy_name=strategy_name,
+                )
+                how = f"tx {res['hash']}" if res["committed"] else f"ledger-only ({res['receipts']} receipts)"
+                print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
+                      f"closed at shutdown: {how}")
+            except Exception as e:  # noqa: BLE001 - never mask the run summary
+                print(f"WARNING: shutdown commit of epoch {epoch_index} failed: {e}",
+                      file=sys.stderr)
 
     eq = broker.equity(list(agg.bars)[-1].close) if agg.bars else a.cash
     summary = {

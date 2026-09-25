@@ -26,6 +26,14 @@ from .rules import Rules, sanitize, validate
 MAX_CHANGES = 2   # fields per epoch; keeps every rewrite attributable
 MIN_TRADES = 3    # closed trades in the review window before touching anything
 
+# Set after the configured LLM endpoint fails at the transport/HTTP level
+# (unreachable, timeout, 5xx). On later epochs the call is skipped entirely:
+# the heuristic fallback applies, the failure is logged ONCE (here and in the
+# first failed epoch's s2 history row), and the live loop no longer stalls
+# for up to the request timeout at every epoch boundary. Unparseable model
+# output does NOT latch: a bad reply is retried next epoch.
+_llm_endpoint_down: str | None = None
+
 SYSTEM_PROMPT = """You are System-2, the strategy rewriter for a paper-trading bot.
 You receive the current strategy parameters and a rolling window of recent epoch results.
 Propose adjusted values for AT MOST 2 of these fields (the most important ones only):
@@ -93,7 +101,7 @@ def rewrite(rules: Rules, epoch: dict, window: list[dict] | None = None) -> tupl
                                     "why": f"only {closed_in_window} closed trade(s) in the last "
                                            f"{len(window)} epoch(s); need {MIN_TRADES} before rewriting"}}
 
-    if base_url and model:
+    if base_url and model and _llm_endpoint_down is None:
         try:
             r = httpx.post(
                 f"{base_url.rstrip('/')}/chat/completions",
@@ -123,8 +131,18 @@ def rewrite(rules: Rules, epoch: dict, window: list[dict] | None = None) -> tupl
             proposal = json.loads(_extract_json(text))
             backend = f"llm:{model}"
         except Exception as e:  # noqa: BLE001 - fallback is the feature
+            if isinstance(e, httpx.HTTPError) and _llm_endpoint_down is None:
+                # degrade gracefully: mark the endpoint down, log once, keep
+                # trading on the heuristic rewriter
+                globals()["_llm_endpoint_down"] = f"{type(e).__name__}: {e}"
+                print(f"SYSTEM-2: LLM endpoint {base_url} unreachable "
+                      f"({type(e).__name__}); continuing on the heuristic rewriter "
+                      "for the rest of this process", flush=True)
             proposal = _heuristic_rewrite(rules, window)
             backend = f"heuristic (llm failed: {type(e).__name__})"
+    elif base_url and model:
+        proposal = _heuristic_rewrite(rules, window)
+        backend = f"heuristic (llm endpoint down since earlier: {_llm_endpoint_down})"
     else:
         proposal = _heuristic_rewrite(rules, window)
 

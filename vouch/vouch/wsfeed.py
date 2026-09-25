@@ -14,8 +14,27 @@ import json
 import queue
 import threading
 import time
+from datetime import datetime, timezone
 
 WS_URL = "wss://ws-feed.exchange.coinbase.com"
+
+
+def _trade_ts(msg: dict) -> float:
+    """Epoch seconds for a ticker message. Coinbase's `time` is ISO8601
+    ("2024-05-31T12:34:56.789000Z"), NOT a float, so float(msg["time"])
+    raised ValueError on every trade and the feed looped on reconnect
+    without ever delivering an observation."""
+    raw = msg.get("time")
+    if raw:
+        try:
+            return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            pass
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            pass
+    return time.time()
 
 
 class WsPriceFeed:
@@ -55,7 +74,7 @@ class WsPriceFeed:
                             msg = json.loads(ws.recv(timeout=15))
                             if msg.get("type") != "ticker" or not msg.get("price"):
                                 continue
-                            obs = (float(msg.get("time", 0) or time.time()),
+                            obs = (_trade_ts(msg),
                                    float(msg["price"]), float(msg.get("last_size", 0) or 0))
                             try:
                                 self.observations.put_nowait(obs)

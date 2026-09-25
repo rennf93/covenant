@@ -35,6 +35,7 @@ from vouch.execution import PaperVenue, VenueError, make_venue
 from vouch.market import Tick
 from vouch.rules import Rules
 from vouch.system1 import System1
+from vouch.system2 import rewrite
 
 
 class RealBook:
@@ -88,7 +89,7 @@ def main() -> None:
     peak_equity = a.max_usd
     halted = False
     halt_reason = ""
-    cooldown_until = 0.0
+    cooldown_until = 0  # tick index (System-1 compares against tick.i)
     realized = 0.0      # NET: gross pnl minus every venue fee
     fees_paid = 0.0
     closed = 0
@@ -118,7 +119,11 @@ def main() -> None:
         closed += 1
         net = gross - exit_fee
         if net < 0:
-            cooldown_until = time.time() + rules.cooldown_ticks * a.interval
+            # Tick-based, like the paper broker: System-1 gates entries on
+            # `tick.i <= cooldown_until`, so a wall-clock deadline here would
+            # veto every entry for the rest of the session (tick.i never
+            # reaches ~1.7e9 epoch seconds).
+            cooldown_until = tick_counter + rules.cooldown_ticks
         position = None
         quote_usd = 0.0
         with log.open("a") as f:
@@ -189,7 +194,7 @@ def main() -> None:
         if d["mode"] == "exit" and d["final_action"] == "exit" and position:
             close_position(price, "LAYA_EXIT")
         elif d["mode"] == "entry" and d["final_action"] == "long" and d["veto"] is None \
-                and position is None and time.time() > cooldown_until:
+                and position is None and tick_counter > cooldown_until:
             size = round(min(a.max_usd, equity * rules.max_position_pct), 2)
             try:
                 res = venue.market_order(client, "BUY", size, price)

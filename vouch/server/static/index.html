@@ -6,68 +6,131 @@
 <title>vouch dashboard</title>
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --panel2: #1c2129; --border: #2d333b;
-    --text: #e6edf3; --dim: #8b949e; --accent: #4493f8; --green: #3fb950;
-    --red: #f85149; --yellow: #d29922; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --bg: #0a0a0b; --panel: #101012; --hover: #17171a;
+    --text: #e4e4e7; --text2: #a1a1aa; --muted: #71717a;
+    --line: #232326; --line-input: #2e2e33;
+    --up: #3fce8f; --down: #e5615c; --warn: #d4a72c;
+    --up-dim: rgba(63, 206, 143, .4); --down-dim: rgba(229, 97, 92, .4); --warn-dim: rgba(212, 167, 44, .35);
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
-           border-bottom: 1px solid var(--border); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-  header .live { color: var(--dim); font-size: 12px; }
-  header .spacer { flex: 1; }
-  button { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
-           border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: #1f4479; border-color: #2f6bbf; }
-  button.danger { background: #5c1a1a; border-color: #a33; }
+         font: 14px/1.5 var(--sans); }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  .live { color: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+
+  button { background: transparent; color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; font: 13px var(--sans); }
+  button:hover { background: var(--hover); border-color: var(--line-input); }
+  button:active { transform: scale(0.98); }
+  button.primary { background: var(--up); border-color: var(--up); color: #06281a; font-weight: 600; }
+  button.primary:hover { background: #35b87e; border-color: #35b87e; }
+  button.danger { background: transparent; color: var(--down); border-color: var(--down-dim); }
+  button.danger:hover { background: rgba(229, 97, 92, .1); border-color: var(--down); }
   button:disabled { opacity: .45; cursor: default; }
-  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
-                  border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; }
-  label { display: block; color: var(--dim); font-size: 11px; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .04em; }
-  main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px 20px; max-width: 1500px; margin: 0 auto; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .panel h2 { font-size: 13px; margin: 0 0 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line-input);
+                  border-radius: 6px; padding: 6px 9px; font: 12.5px var(--mono); width: 100%;
+                  font-variant-numeric: tabular-nums; }
+  input:focus, select:focus { outline: none; border-color: var(--up-dim);
+                              box-shadow: 0 0 0 2px rgba(63, 206, 143, .25); }
+  input.err, select.err { border-color: var(--down); }
+  input[type="checkbox"] { width: auto; accent-color: var(--up); }
+  label { display: block; color: var(--muted); font: 10.5px var(--mono);
+          text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 4px; }
+  label.check { display: flex; align-items: center; gap: 8px; text-transform: none;
+                letter-spacing: 0; font: 12px var(--sans); color: var(--text2);
+                margin: 10px 0 2px; cursor: pointer; }
+
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 14px; padding: 14px 20px; max-width: 1500px; margin: 0 auto; }
+  .panel, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 0; padding: 14px; }
+  .card { margin-bottom: 14px; }
   .stack > * + * { margin-top: 14px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
-  .card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); display: inline-block; }
-  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot.err { background: var(--red); }
-  .mode-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--dim); }
-  pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-        padding: 8px 10px; font: 11.5px/1.5 var(--mono); overflow: auto; max-height: 220px; margin: 8px 0 0; }
-  table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
-  th { text-align: left; color: var(--dim); font-weight: 500; padding: 4px 8px; border-bottom: 1px solid var(--border); }
-  td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .sec-h, .panel h2, .card h2 { display: flex; align-items: baseline; gap: 10px;
+          font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .14em;
+          color: var(--muted); border-bottom: 1px solid var(--line);
+          padding-bottom: 6px; margin: 0 0 10px; }
+  .sec-h .val { margin-left: auto; color: var(--text2); text-transform: none;
+                letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
+  .dot.on { background: var(--up); }
+  .dot.err { background: var(--down); }
+  .mode-tag { font: 10px var(--mono); text-transform: uppercase; letter-spacing: .08em;
+              padding: 2px 6px; border: 1px solid var(--line); color: var(--muted); border-radius: 0; flex: none; }
+  .mode-tag.halted { color: var(--down); border-color: var(--down-dim); }
+
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 0;
+        padding: 10px 12px; font: 12px/1.5 var(--mono); font-variant-numeric: tabular-nums;
+        overflow: auto; max-height: 220px; margin: 10px 0 0; color: var(--text2); }
+  .cout.err { color: var(--down); }
+  .cout.kill { color: var(--down); font-weight: 700; }
+  .cout.act { color: var(--up); }
+
+  table { width: 100%; border-collapse: collapse; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--muted); font: 500 10px var(--mono); text-transform: uppercase;
+       letter-spacing: .1em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:last-child, td:last-child { padding-right: 0; }
   tr:last-child td { border-bottom: none; }
-  .pos { color: var(--green); } .neg { color: var(--red); } .dimtext { color: var(--dim); }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .sess { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
-  .sess:hover { background: var(--panel2); }
-  .sess.sel { background: #1f2a3d; }
-  .sess .name { font: 12px var(--mono); flex: 1; }
-  .sess .meta { color: var(--dim); font-size: 11px; }
-  .banner { padding: 8px 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 12px;
-            border: 1px solid var(--border); background: var(--panel); color: var(--dim); }
-  .banner.warn { border-color: #7a5c11; background: #2b230d; color: #e3b341; }
-  .kv { font: 12px var(--mono); color: var(--dim); }
+  .pos { color: var(--up); } .neg { color: var(--down); } .dimtext { color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { flex: 1; background: transparent; color: var(--text2); border: 0;
+                border-top: 1px solid transparent; border-radius: 0; padding: 6px 4px;
+                font: 11px var(--mono); text-transform: uppercase; letter-spacing: .08em;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button:hover { background: var(--hover); color: var(--text); }
+  .seg button.on { background: var(--hover); color: var(--up); border-top-color: var(--up); }
+
+  .sess { display: flex; align-items: center; gap: 8px; padding: 7px 8px; cursor: pointer; }
+  .sess:hover { background: var(--hover); }
+  .sess.sel { background: var(--hover); }
+  .sess.sel .name { color: var(--text); }
+  .sess .name { font: 12px var(--mono); flex: 1; color: var(--text2);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess .meta { color: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+
+  .runhead { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 9px; }
+  .runid { font: 600 12.5px var(--mono); color: var(--text); }
+  .runstat { margin-left: auto; font: 12px var(--mono); color: var(--text2); font-variant-numeric: tabular-nums; }
+
+  .banner { padding: 10px 12px; font: 12px/1.5 var(--mono); margin-bottom: 12px;
+            border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+  .banner.warn { border-color: var(--warn-dim); background: rgba(212, 167, 44, .05); color: var(--warn); }
+  .killbanner { border: 1px solid var(--down-dim); border-left: 3px solid var(--down);
+                background: rgba(229, 97, 92, .06); color: var(--down);
+                font: 12px var(--mono); text-transform: uppercase; letter-spacing: .08em;
+                padding: 8px 12px; margin: 0 0 12px; }
+
+  .kv { font: 12px/1.7 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .kv b { color: var(--text); font-weight: 500; }
-  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(10, 10, 11, .75); display: none;
               align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 10; }
   .modal-bg.open { display: flex; }
-  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-           width: 560px; max-width: 100%; max-height: 85vh; overflow: auto; padding: 18px; }
-  .modal h3 { margin: 0 0 8px; font-size: 15px; }
-  .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .tabs button { flex: 1; padding: 5px 0; font-size: 12px; }
-  .tabs button.on { border-color: var(--accent); color: var(--accent); }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 0;
+           width: 600px; max-width: 100%; max-height: 85vh; overflow: auto; padding: 20px; }
+  .modal h3 { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .14em;
+              color: var(--muted); border-bottom: 1px solid var(--line);
+              padding-bottom: 6px; margin: 20px 0 12px; }
+  .modal h3:first-of-type { margin-top: 0; }
+  .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .fielderr { display: none; margin-top: 14px; border: 1px solid var(--down-dim);
+              background: rgba(229, 97, 92, .06); color: var(--down);
+              font: 11.5px/1.6 var(--mono); padding: 10px 12px; }
+
   #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-           background: var(--panel2); border: 1px solid var(--border); padding: 8px 16px;
-           border-radius: 8px; font-size: 13px; display: none; z-index: 20; }
+           background: var(--hover); border: 1px solid var(--line); padding: 8px 14px;
+           border-radius: 6px; font: 12px var(--mono); color: var(--text); display: none; z-index: 20; }
 </style>
 </head>
 <body>
@@ -80,25 +143,26 @@
 <main>
   <div class="stack">
     <div class="panel">
-      <h2>Launch</h2>
-      <div class="tabs" id="modetabs"></div>
+      <div class="sec-h">launch<span class="val" id="modelabel"></span></div>
+      <div class="seg" id="modetabs"></div>
       <div id="paramfields"></div>
       <label>venue</label>
-      <select id="venue"></select>
-      <div class="kv" id="venuedocs" style="margin-top:4px"></div>
-      <div style="margin-top:12px"><button class="primary" style="width:100%" onclick="startRun()" id="startbtn">Start</button></div>
+      <input type="hidden" id="venue">
+      <div class="seg" id="venueseg"></div>
+      <div class="kv" id="venuedocs" style="margin-top:6px"></div>
+      <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="startRun()" id="startbtn">Start</button></div>
     </div>
     <div class="panel">
-      <h2>Sessions</h2>
+      <div class="sec-h">sessions<span class="val" id="sesscount"></span></div>
       <div id="sessions"><div class="dimtext">loading...</div></div>
     </div>
   </div>
 
   <div>
     <div id="realbanner"></div>
-    <h2 style="font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:2px 0 8px">Active runs</h2>
+    <div class="sec-h" style="margin-top:2px">active runs<span class="val" id="runcount"></span></div>
     <div id="activeruns"><div class="banner">nothing running. Launch something on the left.</div></div>
-    <h2 style="font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Inspector <span class="dimtext" id="inspname"></span></h2>
+    <div class="sec-h" style="margin-top:18px">inspector<span class="val" id="inspname"></span></div>
     <div id="inspector"><div class="banner">select a session to inspect it</div></div>
   </div>
 </main>
@@ -114,7 +178,7 @@
       <div><label>fee bps per side</label><input id="cfg_fee" type="number"></div>
       <div><label>product</label><input id="cfg_product"></div>
     </div>
-    <h3 style="margin-top:16px;font-size:13px">System-1 provider (the decision head)</h3>
+    <h3>System-1 provider (the decision head)</h3>
     <label>provider</label>
     <select id="r_s1_provider" onchange="renderS1Hint()">
       <option value="local">Local laya library (in-process, slow cold start)</option>
@@ -127,19 +191,20 @@
     </div>
     <label>model id (openrouter only, e.g. openai/gpt-4o-mini)</label>
     <input id="r_s1_model">
-    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+    <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
       <button onclick="probeS1()">Check server health</button>
       <span class="kv" id="s1health"></span>
     </div>
     <div class="dimtext" style="font-size:11.5px;margin-top:4px" id="s1hint"></div>
-    <h3 style="margin-top:16px;font-size:13px">System-2 rewriter (rule tuner)</h3>
+    <h3>System-2 rewriter (rule tuner)</h3>
     <div class="grid2">
       <div><label>base url (openai-compatible; empty = heuristic fallback)</label><input id="r_s2_base_url" placeholder="http://127.0.0.1:9998/v1"></div>
       <div><label>model</label><input id="r_s2_model" placeholder="qwen3.8-27b"></div>
     </div>
     <label>api key</label><input id="r_s2_api_key" type="password">
-    <h3 style="margin-top:16px;font-size:13px">Run defaults</h3>
+    <h3>Run defaults</h3>
     <div id="defaultfields" class="grid2"></div>
+    <div class="fielderr" id="cfgerr"></div>
     <div class="row">
       <button onclick="closeSettings()">Cancel</button>
       <button class="primary" onclick="saveSettings()">Save</button>
@@ -157,6 +222,14 @@ const cls = n => n >= 0 ? "pos" : "neg";
 const pct = n => (n >= 0 ? "+" : "") + n.toFixed(3) + "%";
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block";
   clearTimeout(timers.toast); timers.toast = setTimeout(() => t.style.display = "none", 3500); }
+
+/* colorize one console line: kill-switch red bold, errors red, trade actions emerald */
+function hl(line) {
+  const e = esc(line);
+  if (/kill.?switch|halt/i.test(e)) return `<span class="cout kill">${e}</span>`;
+  if (/error|traceback|exception|failed/i.test(e)) return `<span class="cout err">${e}</span>`;
+  return e.replace(/\b(BUY|SELL|FILL|FILLED|ENTRY|EXIT)\b/g, '<span class="cout act">$1</span>');
+}
 
 async function api(path, opts) {
   const r = await fetch(path, opts ? {headers: {"Content-Type": "application/json"}, ...opts,
@@ -178,6 +251,7 @@ const BOOLS = {shadow: [["websocket", "use websocket feed"]], backtest: [["s2", 
 function renderModeTabs() {
   $("modetabs").innerHTML = Object.keys(MODES).map(m =>
     `<button class="${m === selMode ? "on" : ""}" onclick="pickMode('${m}')">${MODE_LABEL[m]}</button>`).join("");
+  $("modelabel").textContent = MODE_LABEL[selMode];
 }
 function pickMode(m) { selMode = m; renderModeTabs(); renderParams(); }
 
@@ -186,7 +260,7 @@ function renderParams() {
   $("paramfields").innerHTML = MODES[selMode].map(k =>
     `<label>${k.replace(/_/g, " ")}</label><input id="p_${k}" type="number" step="any" value="${d[k] ?? ""}">`).join("")
     + (BOOLS[selMode] || []).map(([k, lbl]) =>
-    `<label style="text-transform:none;letter-spacing:0"><input type="checkbox" id="p_${k}" ${d[k] ?? true ? "checked" : ""} style="width:auto"> ${lbl}</label>`).join("");
+    `<label class="check"><input type="checkbox" id="p_${k}" ${d[k] ?? true ? "checked" : ""} style="width:auto"> ${lbl}</label>`).join("");
 }
 
 async function startRun() {
@@ -204,19 +278,19 @@ async function startRun() {
 /* ---------- active runs ---------- */
 function renderRuns() {
   const runs = state.active;
+  $("runcount").textContent = runs.length ? runs.length + " running" : "";
   if (!runs.length) { $("activeruns").innerHTML = '<div class="banner">nothing running. Launch something on the left.</div>'; return; }
   $("activeruns").innerHTML = runs.map(r => `
     <div class="card">
-      <div class="head">
+      <div class="runhead">
         <span class="dot ${r.running ? "on" : (r.exit_code ? "err" : "")}"></span>
-        <b style="font:13px var(--mono)">${esc(r.id)}</b>
+        <span class="runid">${esc(r.id)}</span>
         <span class="mode-tag">${esc(r.mode)}</span>
-        <span class="dimtext" style="font-size:12px">${r.running ? r.uptime_s + "s" : "exit " + r.exit_code}</span>
-        <span class="spacer" style="flex:1"></span>
-        <button onclick="doStop('${r.id}')">Stop</button>
+        <span class="runstat ${r.running ? "" : (r.exit_code ? "neg" : "dimtext")}">${r.running ? r.uptime_s + "s" : "exit " + r.exit_code}</span>
+        <button class="danger" onclick="doStop('${r.id}')">Stop</button>
         <button onclick="doRestart('${r.id}')">Restart</button>
       </div>
-      <pre>${esc((r.console_tail || []).join("\n")) || '<span class="dimtext">no output yet</span>'}</pre>
+      <pre>${(r.console_tail || []).map(hl).join("\n") || '<span class="dimtext">no output yet</span>'}</pre>
     </div>`).join("");
 }
 async function doStop(id) { try { await api(`/api/runs/${id}/stop`, {method: "POST"}); toast("stopped " + id); refresh(); } catch (e) { toast(e.message); } }
@@ -224,10 +298,12 @@ async function doRestart(id) { try { await api(`/api/runs/${id}/restart`, {metho
 
 /* ---------- sessions + inspector ---------- */
 function renderSessions() {
+  $("sesscount").textContent = state.sessions.length ? state.sessions.length + " found" : "";
   $("sessions").innerHTML = state.sessions.map(s => `
     <div class="sess ${s.id === selSession ? "sel" : ""}" onclick="inspect('${s.id}')">
       <span class="dot ${s.summary && s.summary.halted ? "err" : ""}"></span>
       <span class="name">${esc(s.id)}</span>
+      ${s.summary && s.summary.halted ? '<span class="mode-tag halted">halt</span>' : ""}
       <span class="meta">${s.summary ? (s.summary.return_pct !== undefined ? pct(s.summary.return_pct) : "") : ""}</span>
     </div>`).join("") || '<div class="dimtext">no sessions yet</div>';
 }
@@ -246,6 +322,9 @@ async function loadSession() {
   try { s = await api(`/api/sessions/${selSession}?limit=40`); } catch { return; }
   $("inspname").textContent = "(" + s.id + ")";
   let html = "";
+  if (s.summary && s.summary.halted) {
+    html += `<div class="killbanner">kill-switch: ${esc(s.summary.halt_reason || "halted")}</div>`;
+  }
   if (s.summary) {
     const m = s.summary;
     html += `<div class="card"><div class="grid2">
@@ -261,15 +340,17 @@ async function loadSession() {
     s.decisions.slice().reverse().map(d => {
       const dec = d.decision || {};
       const pf = dec.probs ? dec.probs.flat : null;
+      const act = dec.final_action || "";
+      const actCls = /^(buy|sell|entry|exit|long|short)/i.test(act) ? "pos" : "";
       return `<tr><td class="dimtext">${(d.ts || "").slice(11, 19)}</td><td>${d.price ?? ""}</td>
-        <td>${dec.mode || "entry"}</td><td>${esc(dec.final_action || "")}</td>
+        <td>${dec.mode || "entry"}</td><td class="${actCls}">${esc(act)}</td>
         <td>${dec.conviction ?? ""}</td><td>${pf != null ? pf.toFixed(3) : ""}</td>
         <td class="dimtext">${esc(d.acted || dec.veto || "")}</td><td>${d.equity ?? ""}</td></tr>`;
     }).join("") + "</table></div>";
   }
   if (s.trades.length) {
     html += `<div class="card"><h2>Trades</h2><table><tr><th>tick</th><th>action</th><th>price</th><th>pnl</th><th>reason</th></tr>` +
-      s.trades.slice().reverse().map(t => `<tr><td>${t.tick ?? ""}</td><td>${esc(t.action || "")}</td><td>${t.price ?? ""}</td>
+      s.trades.slice().reverse().map(t => `<tr><td>${t.tick ?? ""}</td><td class="pos">${esc(t.action || "")}</td><td>${t.price ?? ""}</td>
       <td class="${cls(t.pnl_usd ?? 0)}">${t.pnl_usd ?? ""}</td><td>${esc(t.reason || "")}</td></tr>`).join("") + "</table></div>";
   }
   if (s.s2.length) {
@@ -278,13 +359,14 @@ async function loadSession() {
       <td>${esc((r.s2.backend || "").slice(0, 40))}</td><td>${esc(JSON.stringify(r.s2.applied))}</td>
       <td class="dimtext">${esc(r.s2.rejected ? JSON.stringify(r.s2.rejected.why || r.s2.rejected) : "")}</td></tr>`).join("") + "</table></div>";
   }
-  if (s.console && s.console.length) html += `<div class="card"><h2>Console</h2><pre>${esc(s.console.join("\n"))}</pre></div>`;
+  if (s.console && s.console.length) html += `<div class="card"><h2>Console</h2><pre>${s.console.map(hl).join("\n")}</pre></div>`;
   $("inspector").innerHTML = html || '<div class="banner">no data yet for this session</div>';
 }
 
 /* ---------- settings ---------- */
 function openSettings() {
   const cfg = state.config;
+  $("cfgerr").style.display = "none";
   $("rulefields").innerHTML = Object.keys(cfg.rules).map(k => {
     const rail = state.rails[k];
     const railtxt = rail ? ` (${rail[0]} .. ${rail[1]})` : "";
@@ -342,20 +424,37 @@ async function saveSettings() {
             model: $("r_s1_model").value.trim(), api_key: $("r_s1_api_key").value};
   cfg.s2 = {base_url: $("r_s2_base_url").value.trim(), model: $("r_s2_model").value.trim(),
             api_key: $("r_s2_api_key").value};
-  try { await api("/api/config", {method: "PUT", body: {config: cfg}}); toast("saved"); closeSettings(); refresh(); }
-  catch (e) { toast("ERROR: " + e.message); }
+  try { await api("/api/config", {method: "PUT", body: {config: cfg}}); toast("saved"); $("cfgerr").style.display = "none"; closeSettings(); refresh(); }
+  catch (e) {
+    const err = $("cfgerr");
+    err.textContent = "rails rejected the save: " + e.message;
+    err.style.display = "block";
+    document.querySelectorAll("#settingsbg input").forEach(i => i.classList.remove("err"));
+    Object.keys(state.config.rules).forEach(k => {
+      if (e.message.includes(k)) { const el = $("r_" + k); if (el) el.classList.add("err"); }
+    });
+    const bad = document.querySelector("#settingsbg input.err");
+    if (bad) bad.scrollIntoView({block: "center", behavior: "smooth"});
+    toast("ERROR: " + e.message);
+  }
 }
 
 /* ---------- main loop ---------- */
 function renderVenues() {
-  $("venue").innerHTML = state.venues.map(v =>
-    `<option value="${v.id}" ${state.config.venue === v.id ? "selected" : ""}>${esc(v.label)}${v.configured || !v.live ? "" : " (keys missing)"}</option>`).join("");
+  // venue picker is a segmented control; the hidden #venue input keeps the
+  // original form contract (startRun reads $("venue").value)
+  if (!$("venue").value || !state.venues.some(v => v.id === $("venue").value)) {
+    $("venue").value = state.config.venue || (state.venues[0] ? state.venues[0].id : "");
+  }
+  $("venueseg").innerHTML = state.venues.map(v =>
+    `<button type="button" class="${v.id === $("venue").value ? "on" : ""}" onclick="pickVenue('${v.id}')">${esc(v.label)}${v.configured || !v.live ? "" : " (keys missing)"}</button>`).join("");
   const v = state.venues.find(x => x.id === $("venue").value);
   if (v) $("venuedocs").textContent = v.docs + (v.live && !v.configured ? " MISSING: " + v.missing_env.join(", ") : "");
   $("realbanner").innerHTML = state.real_mode_allowed ? "" :
     `<div class="banner warn">Real-money runs are blocked from this UI by default (by design). Start run_real.py by hand,
      or set VOUCH_UI_ALLOW_REAL=1 in the server environment if you know what that means.</div>`;
 }
+function pickVenue(id) { $("venue").value = id; renderVenues(); }
 
 async function refresh() {
   try { state = await api("/api/overview"); } catch { return; }
