@@ -1788,6 +1788,7 @@ textarea {
 @media (pointer: coarse) {
   .btn,
   .copy-chip,
+  .seg-item,
   .site-header nav a {
     min-height: 40px;
   }
@@ -1811,3 +1812,369 @@ textarea {
     transition: none !important;
   }
 }
+
+/* ---------- segmented control (window tabs, verify tabs) ---------- */
+
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.seg-item {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  text-decoration: none;
+  padding: 0.34rem 0.8rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease),
+    box-shadow 200ms var(--ease);
+}
+
+.seg-item:hover {
+  color: var(--text-0);
+  background: var(--surface-2);
+}
+
+/* the active segment gets the emerald pill with real glow, like btn-primary */
+.seg-item.on,
+.seg-item.on:hover {
+  color: #052e1c;
+  background: linear-gradient(180deg, #52efaa, #2fd184);
+  box-shadow: 0 0 16px rgba(69, 232, 160, 0.28);
+}
+
+.verify-seg {
+  margin-top: 2.25rem;
+}
+
+.panel-head-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+}
+
+/* ---------- live pill ---------- */
+
+.live-pill {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.live-pill .dot {
+  animation: breathe 2.6s var(--ease) infinite;
+}
+
+.live-pill[data-state="offline"] .dot {
+  animation: none;
+}
+
+.live-pill-label {
+  font-size: 10px;
+}
+
+/* ---------- small buttons + wallet affordance ---------- */
+
+.btn-sm {
+  font-size: 12px;
+  padding: 0.42rem 0.9rem;
+}
+
+.connect-wallet {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* the inspect chip is emerald: it opens something verified, not just copied */
+.inspect-chip {
+  color: var(--pos);
+  border-color: var(--pos-border);
+}
+
+.inspect-chip:hover {
+  color: var(--pos);
+  border-color: var(--pos-border);
+  background: color-mix(in srgb, var(--pos) 10%, transparent);
+}
+
+/* ---------- key:value fact lines (desk, challenge panel) ---------- */
+
+.desk-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.15rem 2rem;
+  margin: 0 0 0.4rem;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.kv > span:first-child {
+  color: var(--text-3);
+}
+
+.status-line {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  margin: 0.7rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+span.status-line {
+  display: inline-block;
+  margin: 0.35rem 0.85rem 0 0;
+}
+
+.honest-line {
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.65;
+  margin: 0.9rem 0 0;
+  max-width: 72ch;
+}
+
+/* ---------- inline challenge panel (a full-width row under the epoch) ---------- */
+
+tr.panel-row > td {
+  padding: 0 0.85rem 1.15rem;
+  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid var(--hairline);
+}
+
+tr.panel-row > td:first-child {
+  border-left: 2px solid var(--warn);
+}
+
+.game-panel {
+  border: 1px solid var(--warn-border);
+  border-radius: var(--r-md);
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(230, 180, 80, 0.08), rgba(230, 180, 80, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: reveal-in 480ms var(--ease) both;
+}
+
+.game-panel-core {
+  border-radius: calc(var(--r-md) - 3px);
+  background: linear-gradient(180deg, rgba(30, 24, 12, 0.5), rgba(12, 11, 8, 0.6));
+  padding: 1.1rem 1.2rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.game-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.game-field {
+  margin-top: 0.9rem;
+  max-width: 480px;
+}
+
+.game-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.95rem;
+}
+
+.resolve-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ---------- return cell: primary window value + all-time secondary ---------- */
+
+.ret-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.ret-stack .sub {
+  margin-top: 1px;
+}
+
+/* ---------- evidence drawer ---------- */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(3, 3, 6, 0.66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 240ms var(--ease) both;
+}
+
+.drawer {
+  width: min(960px, 100%);
+  animation: drawer-up 460ms var(--ease-spring) both;
+}
+
+.drawer > .panel-core {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(88vh, 920px);
+}
+
+.drawer-body {
+  overflow: auto;
+  padding: 1.1rem 1.25rem 1.5rem;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-up {
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- evidence bundle view ---------- */
+
+.ev-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.ev-field {
+  background: #0a0a0f;
+  padding: 0.75rem 0.9rem;
+  min-width: 0;
+}
+
+.ev-field--wide {
+  grid-column: 1 / -1;
+}
+
+.ev-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text-0);
+  overflow-wrap: anywhere;
+}
+
+.ev .table-scroll {
+  margin-top: 1.25rem;
+}
+
+.stamp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.stamp-row > .verdict {
+  flex: 1 1 320px;
+  margin-top: 0;
+}
+
+/* compact verdict stamps keep the same language at read-out size */
+.verdict.compact {
+  padding: 1rem 1.2rem;
+}
+
+.verdict.compact .verdict-word {
+  font-size: 1.05rem;
+  letter-spacing: 0.18em;
+}
+
+.verdict.compact .result {
+  margin-top: 0.5rem;
+}
+
+.verdict:not(.ok):not(.bad) {
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
+}
+
+.verdict-word.dim {
+  color: var(--text-3);
+  text-shadow: none;
+}
+
+.verdict-word.warn {
+  color: var(--warn);
+  text-shadow: 0 0 24px rgba(230, 180, 80, 0.35);
+}
+
+/* ---------- responsive: inline panel + drawer on stacked tables ---------- */
+
+@media (max-width: 768px) {
+  tr.panel-row > td {
+    display: block;
+    width: 100%;
+    padding: 0 0.35rem 1rem;
+    border: none;
+  }
+
+  tr.panel-row > td::before {
+    content: none;
+  }
+
+  .drawer-body {
+    padding: 1rem 1rem 1.3rem;
+  }
+}
+

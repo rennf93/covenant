@@ -4,7 +4,8 @@
  * Protocol: reads exactly ONE JSON object from stdin, writes exactly ONE
  * JSON object to stdout. On any failure it writes {"error": "..."} to
  * stdout and exits nonzero. Nothing else may ever be printed to stdout
- * (Python parses stdout as the result payload).
+ * (Python parses stdout as the result payload). Every success response is
+ * stamped with chainId so Python can pin EIP-712 domains without guessing.
  *
  * Payloads:
  *   {"action": "register", "name": ..., "metadataUri": ...}
@@ -12,11 +13,17 @@
  *             "tradesRoot", "evidenceUri"}        (equity/netFlow decimal strings)
  *   {"action": "finalize", "strategyId", "epochIndex"}
  *   {"action": "verify", "strategyId", "epochIndex", "proof": [...], "receiptHash"}
+ *   {"action": "getPerformance", "strategyId"}     (view: epochCount + PnL)
+ *   {"action": "getStrategy", "strategyId"}        (view)
+ *   {"action": "getCheckpoint", "strategyId", "epochIndex"}  (view)
+ *   {"action": "getConfig"}                        (view: challengeWindow etc.)
+ *   {"action": "sign_evidence", "typedData"}       (local EIP-712 signing, no tx)
  *
- * Env: COVENANT_RPC_URL, COVENANT_CONTRACT_ADDRESS required. COVENANT_PRIVATE_KEY
- * required for mutating actions (register/commit/finalize); "verify" is a
- * read and works without it. COVENANT_CHAIN: "arbitrum-sepolia" (default) |
- * "arbitrum" | "anvil".
+ * View actions work without COVENANT_PRIVATE_KEY; everything else (and
+ * sign_evidence) requires it.
+ *
+ * Env: COVENANT_RPC_URL, COVENANT_CONTRACT_ADDRESS required. COVENANT_CHAIN:
+ * "arbitrum-sepolia" (default) | "arbitrum" | "anvil".
  *
  * Module resolution: the repo root has no node_modules; viem lives in the
  * sdk package, so the require is anchored at ../../../sdk/package.json
@@ -40,6 +47,18 @@ const CHAINS = {
   arbitrum: chains.arbitrum,
   anvil: chains.anvil,
 };
+
+const ACTIONS = [
+  "register",
+  "commit",
+  "finalize",
+  "verify",
+  "getPerformance",
+  "getStrategy",
+  "getCheckpoint",
+  "getConfig",
+  "sign_evidence",
+];
 
 function fail(message) {
   process.stdout.write(JSON.stringify({ error: message }) + "\n");
@@ -71,6 +90,11 @@ function toBigInt(v) {
   return typeof v === "bigint" ? v : BigInt(String(v));
 }
 
+/** bigint -> decimal string so JSON stays lossless. */
+function s(v) {
+  return String(v);
+}
+
 async function main() {
   const raw = readStdin();
   let payload;
@@ -80,7 +104,7 @@ async function main() {
     return fail(`stdin is not valid JSON: ${e.message}`);
   }
   const action = payload.action;
-  if (!["register", "commit", "finalize", "verify"].includes(action)) {
+  if (!ACTIONS.includes(action)) {
     return fail(`unknown action: ${String(action)}`);
   }
 
@@ -98,7 +122,7 @@ async function main() {
     return fail("COVENANT_CONTRACT_ADDRESS is required");
   }
 
-  const needsKey = action !== "verify";
+  const needsKey = action !== "verify" && !action.startsWith("get");
   const privateKey = env("COVENANT_PRIVATE_KEY");
   let account = null;
   if (needsKey) {
@@ -119,6 +143,10 @@ async function main() {
     ? createWalletClient({ account, chain, transport })
     : null;
 
+  // Success wrapper: every response carries the chain id so the Python side
+  // can pin the EIP-712 domain to the chain it will commit on.
+  const ok = (result) => ({ ...result, chainId: chain.id });
+
   try {
     if (action === "register") {
       requireFields(payload, ["name", "metadataUri"]);
@@ -130,8 +158,14 @@ async function main() {
       });
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       const result = { hash };
-      // strategyId from the StrategyRegistered log when trivially available.
-      const log = receipt.logs.find((l) => l.topics.length >= 2);
+      // strategyId from the StrategyRegistered log: topic1 is the indexed
+      // uint256 strategy_id (topic0 = event signature, topic2 = owner).
+      const log = receipt.logs.find(
+        (l) =>
+          l.address.toLowerCase() === contractAddress.toLowerCase() &&
+          l.topics.length >= 3 &&
+          l.topics[1],
+      );
       if (log && log.topics[1]) {
         try {
           result.strategyId = BigInt(log.topics[1]).toString();
@@ -139,7 +173,7 @@ async function main() {
           // omit rather than guess
         }
       }
-      return result;
+      return ok(result);
     }
 
     if (action === "commit") {
@@ -165,7 +199,7 @@ async function main() {
         ],
       });
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      return { hash, blockNumber: String(receipt.blockNumber) };
+      return ok({ hash, blockNumber: s(receipt.blockNumber) });
     }
 
     if (action === "finalize") {
@@ -176,8 +210,100 @@ async function main() {
         functionName: "finalizeEpoch",
         args: [toBigInt(payload.strategyId), toBigInt(payload.epochIndex)],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
-      return { hash };
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      return ok({ hash, blockNumber: s(receipt.blockNumber) });
+    }
+
+    if (action === "getPerformance") {
+      requireFields(payload, ["strategyId"]);
+      const rawPerf = await publicClient.readContract({
+        address: contractAddress,
+        abi: covenantAbi,
+        functionName: "getPerformance",
+        args: [toBigInt(payload.strategyId)],
+      });
+      const [equity, highWaterMark, cumulativePnl, epochCount, finalizedEpochs] = rawPerf;
+      return ok({
+        equity: s(equity),
+        highWaterMark: s(highWaterMark),
+        cumulativePnl: s(cumulativePnl),
+        epochCount: s(epochCount),
+        finalizedEpochs: s(finalizedEpochs),
+      });
+    }
+
+    if (action === "getStrategy") {
+      requireFields(payload, ["strategyId"]);
+      const rawStrategy = await publicClient.readContract({
+        address: contractAddress,
+        abi: covenantAbi,
+        functionName: "getStrategy",
+        args: [toBigInt(payload.strategyId)],
+      });
+      const [owner, name, metadataUri, bond, status, createdAt] = rawStrategy;
+      return ok({
+        owner,
+        name,
+        metadataUri,
+        bond: s(bond),
+        status: Number(status),
+        createdAt: s(createdAt),
+      });
+    }
+
+    if (action === "getCheckpoint") {
+      requireFields(payload, ["strategyId", "epochIndex"]);
+      const rawCp = await publicClient.readContract({
+        address: contractAddress,
+        abi: covenantAbi,
+        functionName: "getCheckpoint",
+        args: [toBigInt(payload.strategyId), toBigInt(payload.epochIndex)],
+      });
+      const [equity, netFlow, tradesRoot, evidenceUri, status, committedAt, challenger, stake] =
+        rawCp;
+      return ok({
+        equity: s(equity),
+        netFlow: s(netFlow),
+        tradesRoot,
+        evidenceUri,
+        status: Number(status),
+        committedAt: s(committedAt),
+        challenger,
+        stake: s(stake),
+      });
+    }
+
+    if (action === "getConfig") {
+      const rawCfg = await publicClient.readContract({
+        address: contractAddress,
+        abi: covenantAbi,
+        functionName: "config",
+      });
+      const [admin, resolver, usdg, bondAmount, challengeStake, challengeWindow, paused, treasury] =
+        rawCfg;
+      return ok({
+        admin,
+        resolver,
+        usdg,
+        bondAmount: s(bondAmount),
+        challengeStake: s(challengeStake),
+        challengeWindow: s(challengeWindow),
+        paused: Boolean(paused),
+        treasury: s(treasury),
+      });
+    }
+
+    if (action === "sign_evidence") {
+      requireFields(payload, ["typedData"]);
+      const td = payload.typedData;
+      requireFields(td, ["domain", "types", "message"]);
+      const signature = await account.signTypedData({
+        domain: td.domain,
+        types: td.types,
+        primaryType: td.primaryType || "Evidence",
+        message: td.message,
+      });
+      return ok({ signature, signer: account.address });
     }
 
     // action === "verify" (read; no wallet needed)
@@ -193,7 +319,7 @@ async function main() {
         payload.receiptHash,
       ],
     });
-    return { valid: Boolean(valid) };
+    return ok({ valid: Boolean(valid) });
   } catch (e) {
     return fail(`${action} failed: ${e.shortMessage || e.message}`);
   }

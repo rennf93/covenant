@@ -15,6 +15,12 @@ a typo cannot spend money). Guardrails:
 - started BY A HUMAN, by hand. It is not an AutoClaw task and must never
   become one (vault/finance-policy.md in the HomeNAS repo).
 
+Attestation is bookkeeping, not trading: with COVENANT_ATTEST=1 every actual
+venue fill becomes a canonical receipt (side from the position direction,
+the real order id as the venueOrderIdHash source, executed price and fee),
+exactly like shadow's paper fills. It never places, sizes, or loosens an
+order.
+
 USE AT YOUR OWN LOSS. Read README.md first.
 """
 
@@ -22,12 +28,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 
+from vouch.attest import AttestationConfig, Attestor, receipts
+from vouch.config import load_settings
 from vouch.engine.broker import Position, stop_level_for
 from vouch.engine.candles import (
     BarAggregator,
@@ -37,9 +48,10 @@ from vouch.engine.candles import (
     tick_from_bars,
 )
 from vouch.engine.rules import Rules
+from vouch.engine.session import load_state, save_state
 from vouch.engine.system1 import System1
 from vouch.engine.system2 import rewrite
-from vouch.exceptions import VenueError
+from vouch.exceptions import CommitError, VenueError
 from vouch.venues import PaperVenue, make_venue
 
 
@@ -74,9 +86,13 @@ def main() -> None:
         help="required with --venue coinbase; proves you meant it",
     )
     ap.add_argument("--seed", type=str, default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
+    ap.add_argument(
+        "--resume",
+        action="store_true",
+        help="restore session state from out/real-<seed>/state.json (open position, "
+        "epoch index, pending epoch commit) instead of starting fresh",
+    )
     a = ap.parse_args()
-
-    import os
 
     if os.environ.get("VOUCH_VENUE", "paper") == "coinbase" and not a.confirm_real:
         raise SystemExit(
@@ -87,6 +103,9 @@ def main() -> None:
         raise SystemExit("Venue fell back to paper; check your env vars.")
 
     out_dir = Path("out") / f"real-{a.seed}"
+    state = load_state(out_dir) if a.resume else None
+    if a.resume and state is None:
+        print(f"no restorable state under {out_dir}; starting a fresh session")
     out_dir.mkdir(parents=True, exist_ok=True)
     rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI)
     s1 = System1()
@@ -110,8 +129,128 @@ def main() -> None:
     last_volume_fetch = 0.0
     last_bar_ts = 0
     tick_counter = 0
+    recent: list[str] = []
     deadline = time.time() + a.minutes * 60
     next_epoch = time.time() + a.epoch_minutes * 60
+
+    # --resume: restore session state. Order placement semantics are NOT
+    # restored from state alone: the venue, cap and opt-in flags still have
+    # to be provided by the human relaunching the run.
+    if state is not None:
+        try:
+            if state.get("position"):
+                position = Position(**state["position"])
+                quote_usd = float(state.get("quote_usd", 0.0))
+            peak_equity = float(state.get("peak_equity", a.max_usd))
+            halted = bool(state.get("halted", False))
+            halt_reason = str(state.get("halt_reason", ""))
+            cooldown_until = int(state.get("cooldown_until", 0))
+            realized = float(state.get("realized", 0.0))
+            fees_paid = float(state.get("fees_paid", 0.0))
+            closed = int(state.get("closed", 0))
+            epoch_start_trades = int(state.get("epoch_start_trades", 0))
+            epoch_start_eq = float(state.get("epoch_start_eq", a.max_usd))
+            tick_counter = int(state.get("tick_counter", 0))
+            if state.get("next_epoch"):
+                next_epoch = float(state["next_epoch"])
+            epoch_windows = list(state.get("epoch_windows", []))
+            recent = list(state.get("recent", []))
+            rules = Rules.from_dict(state.get("rules", rules.to_dict()))
+            print(
+                f"resumed session state: tick {tick_counter}, realized {realized:+.4f}, "
+                f"epoch index {state.get('epoch_index', 0)}"
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"WARNING: could not restore state ({e}); continuing fresh")
+
+    # Covenant attestation: env opt-in (COVENANT_ATTEST=1), ledger-only unless
+    # the full connection trio is set. Attestation NEVER places orders.
+    cfg = AttestationConfig.from_env()
+    attestor = None
+    ledger = None
+    epoch_index = int(state.get("epoch_index", 0)) if state is not None else 0
+    strategy_name = ""
+    if cfg.enabled:
+        attest_settings = load_settings().attest
+        strategy_id = attest_settings.strategy_id
+        strategy_name = attest_settings.strategy_name
+        attestor = Attestor(
+            cfg,
+            run_dir=out_dir,
+            strategy_id=strategy_id,
+            venue=venue.receipt_venue,
+            instrument=venue.instrument,
+        )
+        ledger = attestor.start_epoch(epoch_index)
+        mode = "onchain" if cfg.connected else "ledger-only"
+        print(
+            f"[{datetime.now():%H:%M:%S}] attestation {mode}: venue={venue.venue_id} "
+            f"instrument={venue.instrument}"
+        )
+        if cfg.connected:
+            decision = attestor.resync_with_chain(
+                next_local_epoch=epoch_index,
+                pending_receipt_epoch=epoch_index if len(ledger) else None,
+                has_local_history=state is not None or attestor.tracker.last_committed_epoch >= 0,
+            )
+            if decision["action"] == "fast_forward":
+                epoch_index = int(decision["next_epoch"])
+                ledger = attestor.start_epoch(epoch_index)
+                print(f"[{datetime.now():%H:%M:%S}] resync: {decision['message']}")
+            elif decision["action"] == "refuse":
+                print(f"WARNING: {decision['message']}", file=sys.stderr)
+
+    def record_fill(
+        *, kind: str, side: str, order_id: str, size_base: float, price: float, fee: float
+    ) -> None:
+        """One actual venue fill -> one canonical receipt. Side follows the
+        POSITION DIRECTION, not open/close (opening a long is a BUY of the
+        base asset, closing it is a SELL) - the same mapping shadow uses.
+        Bookkeeping only: a receipt failure never blocks trading."""
+        if ledger is None:
+            return
+        is_buy = (kind == "open") == (side == "long")
+        try:
+            ledger.add_fill(
+                venue_order_id=order_id,
+                side=receipts.SIDE_BUY if is_buy else receipts.SIDE_SELL,
+                size_base=f"{size_base:.8f}",
+                price=f"{price:.8f}",
+                fee=f"{fee:.8f}",
+                filled_at=int(time.time()),
+            )
+        except Exception as e:  # noqa: BLE001 - attestation must not break trading
+            print(f"WARNING: receipt not recorded for {kind} fill {order_id}: {e}", file=sys.stderr)
+
+    def mark_equity(price: float) -> float:
+        return a.max_usd + realized + (_fav(position, price) * quote_usd if position else 0.0)
+
+    def persist_session(price: float) -> None:
+        save_state(
+            out_dir,
+            {
+                "mode": "real",
+                "saved_at": datetime.now(UTC).isoformat(),
+                "position": asdict(position) if position else None,
+                "quote_usd": quote_usd,
+                "peak_equity": peak_equity,
+                "halted": halted,
+                "halt_reason": halt_reason,
+                "cooldown_until": cooldown_until,
+                "realized": realized,
+                "fees_paid": fees_paid,
+                "closed": closed,
+                "epoch_start_trades": epoch_start_trades,
+                "epoch_start_eq": epoch_start_eq,
+                "tick_counter": tick_counter,
+                "next_epoch": next_epoch,
+                "epoch_index": epoch_index,
+                "epoch_windows": epoch_windows,
+                "recent": recent,
+                "rules": rules.to_dict(),
+                "equity_mark_usd": round(mark_equity(price), 4),
+            },
+        )
 
     def close_position(price: float, reason: str) -> None:
         nonlocal position, realized, closed, cooldown_until, fees_paid, quote_usd
@@ -137,8 +276,19 @@ def main() -> None:
             # veto every entry for the rest of the session (tick.i never
             # reaches ~1.7e9 epoch seconds).
             cooldown_until = tick_counter + rules.cooldown_ticks
+        entry_quote = quote_usd
+        position_side = position.side
+        base_sold = float(fill.get("size")) if fill.get("size") else entry_quote / position.entry
         position = None
         quote_usd = 0.0
+        record_fill(
+            kind="close",
+            side=position_side,
+            order_id=str(res.get("order_id") or f"{a.seed}-close-{tick_counter}"),
+            size_base=base_sold,
+            price=exit_price,
+            fee=exit_fee,
+        )
         with log.open("a") as f:
             f.write(
                 json.dumps(
@@ -159,11 +309,43 @@ def main() -> None:
         print(f"CLOSE ({reason}) net {net:+.4f} USD, realized {realized:+.4f}")
         recent.append(f"{datetime.now():%H:%M} CLOSE {reason} net {net:+.4f}")
 
-    recent: list[str] = []
+    def close_epoch_boundary(price: float) -> None:
+        """Commit the in-flight epoch; advance the index ONLY on a closed
+        epoch. A failed chain commit keeps the epoch open (receipts keep
+        landing in the same ledger) and retries at the next boundary, so the
+        local index can never run ahead of what committed onchain."""
+        nonlocal ledger, epoch_index
+        if attestor is None or ledger is None:
+            return
+        attestor.auto_finalize()
+        # Epoch 0's netFlow carries the seed capital (the real deposit), so
+        # cumulative PnL telescopes to finalEquity minus deposits.
+        try:
+            res = attestor.commit_epoch(
+                ledger,
+                equity_usd=mark_equity(price),
+                net_flow_usd=a.max_usd if epoch_index == 0 else 0,
+                strategy_name=strategy_name,
+            )
+        except CommitError as e:
+            print(
+                f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} commit FAILED, "
+                f"epoch stays open and will retry at the next boundary: {e}"
+            )
+            return
+        how = (
+            f"tx {res.get('hash') or 'already committed'}"
+            if res["committed"]
+            else f"ledger-only ({res['receipts']} receipts)"
+        )
+        print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} closed: {how}")
+        epoch_index += 1
+        ledger = attestor.start_epoch(epoch_index)
 
     def process_bar() -> None:
         nonlocal tick_counter, position, quote_usd, peak_equity, halted, halt_reason
         nonlocal realized, fees_paid, cooldown_until, epoch_start_trades, epoch_start_eq
+        nonlocal next_epoch
         if not agg.bars:
             return
         tick_counter += 1
@@ -172,7 +354,7 @@ def main() -> None:
 
         if position:
             position.peak_fav = max(position.peak_fav, _fav(position, price))
-        equity = a.max_usd + realized + (_fav(position, price) * quote_usd if position else 0.0)
+        equity = mark_equity(price)
         peak_equity = max(peak_equity, equity)
         if not halted and 1 - equity / peak_equity >= 0.20:
             close_position(price, "KILL_SWITCH")
@@ -189,10 +371,7 @@ def main() -> None:
                 close_position(price, "TAKE")
 
         # epoch boundary: System-2 reviews the rolling window and rewrites rules.
-        # NOTE (pre-existing, preserved verbatim): next_epoch is read here but
-        # assigned later in this function without a nonlocal declaration, so the
-        # first processed bar raises UnboundLocalError. Flagged, not changed.
-        if time.time() >= next_epoch:  # noqa: F823
+        if time.time() >= next_epoch:
             stats = {
                 "trades": closed - epoch_start_trades,
                 "pnl_usd": round(realized - (epoch_start_eq - a.max_usd), 4),
@@ -224,11 +403,13 @@ def main() -> None:
             epoch_windows.append(stats)
             epoch_start_trades = closed
             epoch_start_eq = a.max_usd + realized
-            next_epoch = time.time() + a.epoch_minutes * 60  # noqa: F841  (see F823 note above)
+            next_epoch = time.time() + a.epoch_minutes * 60
             print(
                 f"[{datetime.now():%H:%M:%S}] SYSTEM-2 via {s2info['backend']}: "
                 f"applied={s2info['applied']}"
             )
+            close_epoch_boundary(price)
+            persist_session(price)
 
         book = RealBook(position, cooldown_until)
         d = s1.decide(tick, book, rules, recent)
@@ -254,6 +435,17 @@ def main() -> None:
                 quote_usd = float(fill.get("size") * entry_price) if fill.get("size") else size
                 position = Position(
                     side="long", size_usd=quote_usd, entry=entry_price, open_tick=tick_counter
+                )
+                base_bought = (
+                    float(fill.get("size")) if fill.get("size") else quote_usd / entry_price
+                )
+                record_fill(
+                    kind="open",
+                    side="long",
+                    order_id=str(res.get("order_id") or f"{a.seed}-open-{tick_counter}"),
+                    size_base=base_bought,
+                    price=entry_price,
+                    fee=entry_fee,
                 )
                 recent.append(
                     f"{datetime.now():%H:%M} OPEN long @ {entry_price:.2f} "
@@ -311,7 +503,7 @@ def main() -> None:
         f"{a.minutes} min. Long-only (spot). Shorts are disabled in real mode."
     )
     try:
-        while time.time() < deadline:
+        while time.time() < deadline and not halted:
             try:
                 price = venue.get_price(client)
             except Exception as e:  # noqa: BLE001
@@ -332,6 +524,41 @@ def main() -> None:
             time.sleep(a.interval)
     except KeyboardInterrupt:
         pass
+    finally:
+        # Shutdown commit of the in-flight epoch, same guarantee as shadow:
+        # every exit path (kill switch, Ctrl-C, deadline) closes what fsynced.
+        price_last = list(agg.bars)[-1].close if agg.bars else a.max_usd
+        if ledger is not None and attestor is not None:
+            try:
+                attestor.auto_finalize()
+                res = attestor.commit_epoch(
+                    ledger,
+                    equity_usd=mark_equity(price_last),
+                    net_flow_usd=a.max_usd if epoch_index == 0 else 0,
+                    strategy_name=strategy_name,
+                )
+                how = (
+                    f"tx {res.get('hash') or 'already committed'}"
+                    if res["committed"]
+                    else f"ledger-only ({res['receipts']} receipts)"
+                )
+                print(
+                    f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
+                    f"closed at shutdown: {how}"
+                )
+                epoch_index += 1
+            except CommitError as e:
+                print(
+                    f"WARNING: shutdown commit of epoch {epoch_index} failed; the epoch stays "
+                    f"pending in out/real-{a.seed}/ - rerun with --resume --seed {a.seed} to "
+                    f"retry it. ({e})",
+                    file=sys.stderr,
+                )
+            except Exception as e:  # noqa: BLE001 - never mask the run summary
+                print(
+                    f"WARNING: shutdown commit of epoch {epoch_index} failed: {e}", file=sys.stderr
+                )
+        persist_session(price_last)
 
     summary = {
         "mode": f"REAL ({type(venue).__name__})",
@@ -343,6 +570,7 @@ def main() -> None:
         "open_position": position is not None,
         "halted": halted,
         "halt_reason": halt_reason,
+        "epoch_index": epoch_index,
         "ended": datetime.now(UTC).isoformat(),
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))

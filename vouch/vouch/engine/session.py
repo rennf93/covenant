@@ -19,6 +19,33 @@ from vouch.engine.system1 import System1
 from vouch.engine.system2 import rewrite
 
 
+def save_state(out_dir: Path, state: dict) -> None:
+    """Persist session state to <out_dir>/state.json atomically.
+
+    Written by the shadow/real loops at every epoch boundary and on exit so
+    a later run with --resume restores open position, peak equity, cooldown,
+    the current epoch window and the epoch index.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tmp = out_dir / "state.json.tmp"
+    tmp.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(out_dir / "state.json")
+
+
+def load_state(out_dir: Path) -> dict | None:
+    """Read <out_dir>/state.json; None when absent or unreadable (the caller
+    decides whether that is fatal or a fresh start)."""
+    path = Path(out_dir) / "state.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def run_session(
     ticks: int = 300,
     epoch_len: int = 50,

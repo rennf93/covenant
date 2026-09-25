@@ -59,8 +59,22 @@ export function indexerUrl(): string {
   return process.env.INDEXER_URL ?? "http://127.0.0.1:8787";
 }
 
-export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
-  const res = await fetch(`${indexerUrl()}/strategies`, { next: { revalidate: 15 } });
+/** Leaderboard return windows the indexer API understands. */
+export type WindowKey = "7d" | "30d" | "all";
+
+export const WINDOW_KEYS: readonly WindowKey[] = ["7d", "30d", "all"];
+
+/** Coerces a raw searchParams value into a WindowKey; anything else is "all". */
+export function windowKeyOf(raw: string | string[] | undefined): WindowKey {
+  return typeof raw === "string" && (WINDOW_KEYS as readonly string[]).includes(raw)
+    ? (raw as WindowKey)
+    : "all";
+}
+
+export async function fetchLeaderboard(win: WindowKey = "all"): Promise<LeaderboardRow[]> {
+  const res = await fetch(`${indexerUrl()}/strategies?window=${win}`, {
+    next: { revalidate: 15 },
+  });
   if (!res.ok) throw new Error(`indexer ${res.status}`);
   const body = (await res.json()) as { rows: LeaderboardRow[] };
   return body.rows;

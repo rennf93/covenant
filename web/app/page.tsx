@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import LivePill from "../components/live-pill";
 import { SparkDefs, Sparkline } from "../components/spark";
 import {
   fetchDemoFlag,
@@ -7,7 +8,10 @@ import {
   formatReturnWad,
   formatUsdg,
   statusPill,
+  windowKeyOf,
+  WINDOW_KEYS,
   type LeaderboardRow,
+  type WindowKey,
 } from "../lib/api";
 
 export const dynamic = "force-dynamic";
@@ -75,11 +79,40 @@ function Rank({ i }: { i: number }) {
   return <span className="mono dim">#{i + 1}</span>;
 }
 
-function ReturnCell({ row }: { row: LeaderboardRow }) {
-  const wad = row.derived.returnWad;
-  if (wad === null) return <span className="dim">no history</span>;
-  const pct = Number(wad) / 1e16;
-  if (pct === 0) return <span className="dim">0.00%</span>;
+/** Segmented control driving the indexer's ?window= param via links. */
+function WindowTabs({ active }: { active: WindowKey }) {
+  return (
+    <nav className="seg" aria-label="Return window">
+      {WINDOW_KEYS.map((key) => (
+        <Link
+          key={key}
+          href={key === "all" ? "/" : `/?window=${key}`}
+          className={`seg-item ${key === active ? "on" : ""}`}
+          aria-current={key === active ? "page" : undefined}
+        >
+          {key}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function ReturnCell({ row, win }: { row: LeaderboardRow; win: WindowKey }) {
+  const allWad = row.derived.returnWad;
+  // The selected window's return leads when it exists; the all-time return
+  // rides along as the secondary line. On the "all" tab they are the same.
+  const windowWad = win === "all" ? allWad : (row.windowReturnWad ?? null);
+  if (windowWad === null) {
+    return allWad === null ? (
+      <span className="dim">no history</span>
+    ) : (
+      <span className="dim">
+        {formatReturnWad(allWad)} <span className="mono">(all time)</span>
+      </span>
+    );
+  }
+  const pct = Number(windowWad) / 1e16;
+  if (pct === 0 && win === "all") return <span className="dim">0.00%</span>;
   const positive = pct > 0;
   // centered-zero bar: 100% return fills the whole half, capped there
   const half = Math.min(50, Math.abs(pct));
@@ -91,7 +124,14 @@ function ReturnCell({ row }: { row: LeaderboardRow }) {
       <span className="ret-bar" aria-hidden="true">
         <span className={`ret-fill ${positive ? "rpos" : "rneg"}`} style={fillStyle} />
       </span>
-      <span className={positive ? "pos" : "neg"}>{formatReturnWad(wad)}</span>
+      <span className="ret-stack">
+        <span className={positive ? "pos" : "neg"}>{formatReturnWad(windowWad)}</span>
+        {win !== "all" && allWad !== null && (
+          <span className="sub" title="all-time return">
+            all {formatReturnWad(allWad)}
+          </span>
+        )}
+      </span>
     </span>
   );
 }
@@ -129,12 +169,19 @@ function shortAddr(addr: string): string {
   return addr.length > 14 ? `${addr.slice(0, 8)}…${addr.slice(-4)}` : addr;
 }
 
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const win = windowKeyOf(params.window);
+
   let rows: LeaderboardRow[] | null = null;
   let error: string | null = null;
   let demo = false;
   try {
-    rows = await fetchLeaderboard();
+    rows = await fetchLeaderboard(win);
     demo = await fetchDemoFlag();
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
@@ -333,7 +380,13 @@ export default async function LeaderboardPage() {
             <div className="panel-core">
               <div className="panel-head">
                 <span>Leaderboard</span>
-                <span className="panel-meta">best return first</span>
+                <span className="panel-head-tools">
+                  <WindowTabs active={win} />
+                  <LivePill />
+                  <span className="panel-meta">
+                    {win === "all" ? "best all-time return first" : `best ${win} return first`}
+                  </span>
+                </span>
               </div>
               <div className="table-scroll">
                 <table>
@@ -383,7 +436,7 @@ export default async function LeaderboardPage() {
                             <TrendCell row={row} />
                           </td>
                           <td className="num" data-label="Return">
-                            <ReturnCell row={row} />
+                            <ReturnCell row={row} win={win} />
                           </td>
                           <td className="num" data-label="PnL (USDG)">
                             {formatUsdg(row.derived.cumulativePnl)}
@@ -406,8 +459,9 @@ export default async function LeaderboardPage() {
             </div>
           </div>
           <p className="table-foot">
-            Returns are computed from finalized checkpoints only. Challenge a
-            pending epoch by staking USDG.
+            Returns are computed from finalized checkpoints only
+            {win === "all" ? "" : `, windowed to the last ${win}`}. Challenge a
+            pending epoch by staking USDG on its strategy page.
           </p>
         </>
       )}

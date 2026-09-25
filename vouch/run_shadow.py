@@ -14,6 +14,7 @@ feed the analysis harness (IC) and the SFT dataset builder directly.
 Run:
     .venv/bin/python run_shadow.py --minutes 60
     .venv/bin/python run_shadow.py --forever --no-websocket --interval 20
+    .venv/bin/python run_shadow.py --resume --seed <previous-seed>
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,7 +31,7 @@ import httpx
 
 from vouch.attest import AttestationConfig, Attestor, receipts
 from vouch.config import load_settings
-from vouch.engine.broker import Broker
+from vouch.engine.broker import Broker, Position
 from vouch.engine.candles import (
     BarAggregator,
     inject_volume,
@@ -38,9 +40,11 @@ from vouch.engine.candles import (
     tick_from_bars,
 )
 from vouch.engine.rules import Rules
+from vouch.engine.session import load_state, save_state
 from vouch.engine.system1 import System1
 from vouch.engine.system2 import rewrite
 from vouch.engine.wsfeed import WsPriceFeed
+from vouch.exceptions import CommitError
 from vouch.venues import make_venue
 
 COINBASE_SPOT = "https://api.coinbase.com/v2/prices/SOL-USD/spot"
@@ -77,6 +81,11 @@ def main() -> None:
     )
     ap.add_argument("--seed", type=str, default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
     ap.add_argument(
+        "--resume",
+        action="store_true",
+        help="restore session state from out/live-<seed>/state.json instead of starting fresh",
+    )
+    ap.add_argument(
         "--attest",
         action="store_true",
         help="opt in to Covenant attestation (ledger-only unless the"
@@ -85,7 +94,11 @@ def main() -> None:
     a = ap.parse_args()
 
     out_dir = Path("out") / f"live-{a.seed}"
+    state = load_state(out_dir) if a.resume else None
+    if a.resume and state is None:
+        print(f"no restorable state under {out_dir}; starting a fresh session")
     out_dir.mkdir(parents=True, exist_ok=True)
+
     broker = Broker(starting_cash=a.cash, max_drawdown_pct=0.20)
     rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI)
     s1 = System1()
@@ -102,6 +115,34 @@ def main() -> None:
     last_volume_fetch = 0.0
     tick_counter = 0
 
+    # --resume: restore session state (open position, peak equity, cooldown,
+    # epoch window, epoch index). Without --resume behavior is unchanged:
+    # a fresh session that simply overwrites the run dir.
+    if state is not None:
+        try:
+            broker.cash = float(state["cash"])
+            broker.peak_equity = float(state.get("peak_equity", a.cash))
+            broker.halted = bool(state.get("halted", False))
+            broker.halt_reason = str(state.get("halt_reason", ""))
+            broker.cooldown_until = int(state.get("cooldown_until", -1))
+            broker.trades = list(state.get("trades", []))
+            if state.get("position"):
+                broker.position = Position(**state["position"])
+            rules = Rules.from_dict(state.get("rules", rules.to_dict()))
+            broker.cooldown_ticks = rules.cooldown_ticks
+            tick_counter = int(state.get("tick_counter", 0))
+            if state.get("next_epoch"):
+                next_epoch = float(state["next_epoch"])
+            epoch_start = state.get("epoch_start", epoch_start)
+            epoch_windows = list(state.get("epoch_windows", []))
+            recent = list(state.get("recent", []))
+            print(
+                f"resumed session state: tick {tick_counter}, "
+                f"cash {broker.cash:.4f}, epoch index {state.get('epoch_index', 0)}"
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"WARNING: could not restore state ({e}); continuing fresh")
+
     # Covenant attestation: opt-in via COVENANT_ATTEST=1 or --attest. Entirely
     # disabled = no attestor, no fill observer, byte-identical legacy run.
     cfg = AttestationConfig.from_env()
@@ -109,7 +150,7 @@ def main() -> None:
         cfg.enabled = True
     attestor = None
     ledger = None
-    epoch_index = 0
+    epoch_index = int(state.get("epoch_index", 0)) if state is not None else 0
     strategy_name = ""
     if cfg.enabled:
         venue = make_venue()  # paper by default; class + instrument go into receipts
@@ -154,6 +195,20 @@ def main() -> None:
             f"[{datetime.now():%H:%M:%S}] attestation {mode}: venue={venue.venue_id} "
             f"instrument={venue.instrument}"
         )
+        if cfg.connected:
+            # Resync the epoch index against the chain before anything is
+            # committed: never advance past (or duplicate) what is onchain.
+            decision = attestor.resync_with_chain(
+                next_local_epoch=epoch_index,
+                pending_receipt_epoch=epoch_index if len(ledger) else None,
+                has_local_history=state is not None or attestor.tracker.last_committed_epoch >= 0,
+            )
+            if decision["action"] == "fast_forward":
+                epoch_index = int(decision["next_epoch"])
+                ledger = attestor.start_epoch(epoch_index)
+                print(f"[{datetime.now():%H:%M:%S}] resync: {decision['message']}")
+            elif decision["action"] == "refuse":
+                print(f"WARNING: {decision['message']}", file=sys.stderr)
 
     def epoch_stats(price: float) -> dict:
         closed = [t for t in broker.trades if "pnl_usd" in t]
@@ -165,6 +220,67 @@ def main() -> None:
             "pnl_usd": round(broker.equity(price) - epoch_start["equity"], 4),
             "open_position": broker.position is not None,
         }
+
+    def close_and_advance_epoch(price: float) -> None:
+        """Commit the in-flight epoch; advance the index ONLY on a closed
+        epoch (chain commit landed, or ledger-only close). A failed commit
+        keeps the epoch open: receipts keep accumulating in the same ledger
+        and the commit is retried at the next boundary, so the local index
+        can never run ahead of what actually committed onchain."""
+        nonlocal ledger, epoch_index
+        if attestor is None or ledger is None:
+            return
+        attestor.auto_finalize()
+        # Epoch 0's netFlow carries the seed capital (the starting cash), so
+        # cumulative PnL telescopes to finalEquity minus deposits. Shadow
+        # mode has paper money and no deposits, so every later epoch's net
+        # flow is 0.
+        net_flow = a.cash if epoch_index == 0 else 0
+        try:
+            res = attestor.commit_epoch(
+                ledger,
+                equity_usd=broker.equity(price),
+                net_flow_usd=net_flow,
+                strategy_name=strategy_name,
+            )
+        except CommitError as e:
+            print(
+                f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} commit FAILED, "
+                f"epoch stays open and will retry at the next boundary: {e}"
+            )
+            return
+        how = (
+            f"tx {res.get('hash') or 'already committed'}"
+            if res["committed"]
+            else f"ledger-only ({res['receipts']} receipts)"
+        )
+        sig = "" if res.get("signed", True) else ", unsigned (no bridge)"
+        print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} closed: {how}{sig}")
+        epoch_index += 1
+        ledger = attestor.start_epoch(epoch_index)
+
+    def persist_session(price: float) -> None:
+        save_state(
+            out_dir,
+            {
+                "mode": "shadow",
+                "saved_at": datetime.now(UTC).isoformat(),
+                "cash": broker.cash,
+                "position": asdict(broker.position) if broker.position else None,
+                "peak_equity": broker.peak_equity,
+                "halted": broker.halted,
+                "halt_reason": broker.halt_reason,
+                "cooldown_until": broker.cooldown_until,
+                "trades": broker.trades,
+                "tick_counter": tick_counter,
+                "next_epoch": next_epoch,
+                "epoch_start": epoch_start,
+                "epoch_index": epoch_index,
+                "epoch_windows": epoch_windows,
+                "recent": recent,
+                "rules": rules.to_dict(),
+            },
+        )
 
     def process_bar() -> None:
         """One completed 1m bar: book rails, ask laya, log everything."""
@@ -200,30 +316,8 @@ def main() -> None:
                 f"[{datetime.now():%H:%M:%S}] SYSTEM-2 rewrite via {s2info['backend']}: "
                 f"applied={s2info['applied']} rejected={s2info['rejected']}"
             )
-            if attestor is not None and ledger is not None:
-                # Epoch 0's netFlow carries the seed capital (the starting
-                # cash), so cumulative PnL telescopes to finalEquity minus
-                # deposits. Shadow mode has paper money and no deposits,
-                # so every later epoch's net flow is 0.
-                net_flow = a.cash if epoch_index == 0 else 0
-                res = attestor.commit_epoch(
-                    ledger,
-                    equity_usd=broker.equity(price),
-                    net_flow_usd=net_flow,
-                    strategy_name=strategy_name,
-                )
-                if res["committed"]:
-                    print(
-                        f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
-                        f"committed: tx {res['hash']}"
-                    )
-                else:
-                    print(
-                        f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} closed "
-                        f"(ledger-only, {res['receipts']} receipts): {res['reason']}"
-                    )
-                epoch_index += 1
-                ledger = attestor.start_epoch(epoch_index)
+            close_and_advance_epoch(price)
+            persist_session(price)
             epoch_start["trades"] = len([t for t in broker.trades if "pnl_usd" in t])
             epoch_start["equity"] = broker.equity(price)
             next_epoch = time.time() + a.epoch_minutes * 60
@@ -331,18 +425,17 @@ def main() -> None:
         # observed price; on kill switch the position was already closed by
         # broker.mark, so equity is realized cash. An empty ledger commits
         # as ZERO32, matching the epoch-boundary path.
+        price = list(agg.bars)[-1].close if agg.bars else a.cash
         if ledger is not None and attestor is not None:
-            price = list(agg.bars)[-1].close if agg.bars else a.cash
-            net_flow = a.cash if epoch_index == 0 else 0
             try:
                 res = attestor.commit_epoch(
                     ledger,
                     equity_usd=broker.equity(price),
-                    net_flow_usd=net_flow,
+                    net_flow_usd=a.cash if epoch_index == 0 else 0,
                     strategy_name=strategy_name,
                 )
                 how = (
-                    f"tx {res['hash']}"
+                    f"tx {res.get('hash') or 'already committed'}"
                     if res["committed"]
                     else f"ledger-only ({res['receipts']} receipts)"
                 )
@@ -350,10 +443,19 @@ def main() -> None:
                     f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
                     f"closed at shutdown: {how}"
                 )
+                epoch_index += 1
+            except CommitError as e:
+                print(
+                    f"WARNING: shutdown commit of epoch {epoch_index} failed; the epoch stays "
+                    f"pending in out/live-{a.seed}/ - rerun with --resume --seed {a.seed} to "
+                    f"retry it. ({e})",
+                    file=sys.stderr,
+                )
             except Exception as e:  # noqa: BLE001 - never mask the run summary
                 print(
                     f"WARNING: shutdown commit of epoch {epoch_index} failed: {e}", file=sys.stderr
                 )
+        persist_session(price)
 
     eq = broker.equity(list(agg.bars)[-1].close) if agg.bars else a.cash
     summary = {

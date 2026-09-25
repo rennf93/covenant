@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import CopyButton from "../../../components/copy-button";
+import ChallengeDesk from "../../../components/challenge-desk";
+import ChallengeProvider from "../../../components/challenge-provider";
+import EpochRow from "../../../components/epoch-row";
+import EvidenceChip from "../../../components/evidence";
 import EquityChart, { type ChartPoint } from "../../../components/equity-chart";
 import {
   checkpointPill,
@@ -8,7 +11,7 @@ import {
   formatReturnWad,
   formatUsdg,
   statusPill,
-  type EpochRow,
+  type EpochRow as EpochData,
   type StrategyDetail,
 } from "../../../lib/api";
 
@@ -65,7 +68,7 @@ interface EquityDeltas {
 }
 
 /** Change from the first to the last finalized checkpoint; null below 2 points. */
-function equityDeltas(epochs: EpochRow[]): EquityDeltas | null {
+function equityDeltas(epochs: EpochData[]): EquityDeltas | null {
   const fin = epochs.filter((e) => e.status === 1 && e.equity !== null);
   if (fin.length < 2) return null;
   const first = Number(fin[0].equity);
@@ -135,9 +138,10 @@ export default async function StrategyPage({
     }));
   const finalizedCount = chartPoints.filter((p) => p.status === 1).length;
   const deltas = equityDeltas(detail.epochs);
+  const epochCols = 8; // 7 data columns + the game column
 
   return (
-    <>
+    <ChallengeProvider>
       <div className="page-head reveal" style={revealStyle(0)}>
         <p className="eyebrow eyebrow-live">Strategy #{detail.id}</p>
         <div className="display-row">
@@ -305,16 +309,23 @@ export default async function StrategyPage({
                 <th className="num">PnL (USDG)</th>
                 <th>Status</th>
                 <th>Evidence</th>
+                <th>Game</th>
               </tr>
             </thead>
             <tbody>
-              {detail.epochs.map((e: EpochRow, i) => {
+              {detail.epochs.map((e: EpochData, i) => {
                 const pill = checkpointPill(e.status);
                 return (
-                  <tr
+                  <EpochRow
                     key={e.epochIndex}
-                    className={epochRowClass(e.status)}
+                    strategyId={detail.id}
+                    epochIndex={e.epochIndex}
+                    status={e.status}
+                    challenger={e.challenger ?? null}
+                    stake={e.stake ?? null}
+                    rowClass={epochRowClass(e.status)}
                     style={rowStyle(i)}
+                    colCount={epochCols}
                   >
                     <td className="mono" data-label="Epoch">
                       #{e.epochIndex}
@@ -344,21 +355,22 @@ export default async function StrategyPage({
                       {e.evidenceUri === null ? (
                         <span className="dim">-</span>
                       ) : (
-                        <span className="evidence-chip">
-                          <span className="evidence-uri" title={e.evidenceUri}>
-                            {e.evidenceUri}
-                          </span>
-                          <CopyButton value={e.evidenceUri} />
-                        </span>
+                        <EvidenceChip
+                          uri={e.evidenceUri}
+                          owner={detail.owner}
+                          strategyId={detail.id}
+                        />
                       )}
                     </td>
-                  </tr>
+                  </EpochRow>
                 );
               })}
             </tbody>
           </table>
         </div>
       )}
+
+      <ChallengeDesk />
 
       <div className="panel cta-panel reveal" style={revealStyle(4)}>
         <div className="panel-core">
@@ -381,6 +393,6 @@ export default async function StrategyPage({
           </div>
         </div>
       </div>
-    </>
+    </ChallengeProvider>
   );
 }

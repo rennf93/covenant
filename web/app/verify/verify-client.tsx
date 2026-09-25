@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { createPublicClient, http, type Address, type Chain } from "viem";
-import { arbitrum, arbitrumSepolia } from "viem/chains";
+import { createPublicClient, http, type Address } from "viem";
 import { covenantAbi } from "@covenant/sdk";
+import { chainName, configuredChain, contractAddress, rpcUrl } from "../../lib/chain";
 
 /**
  * Client-side onchain verification: calls the contract's verifyReceipt view
  * directly, so a visitor can audit a disclosed receipt without trusting this
  * website's backend at all.
  */
-
-const CHAINS: Record<string, Chain> = { arbitrum, "arbitrum-sepolia": arbitrumSepolia };
 
 export default function VerifyClient() {
   const [strategyId, setStrategyId] = useState("1");
@@ -26,12 +24,13 @@ export default function VerifyClient() {
     setBusy(true);
     setResult(null);
     try {
-      const contract = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "") as Address;
-      const rpc = process.env.NEXT_PUBLIC_RPC_URL ?? "";
-      const chainName = process.env.NEXT_PUBLIC_CHAIN ?? "arbitrum-sepolia";
-      const chain = CHAINS[chainName];
-      if (!contract || !rpc || !chain) {
-        throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS / NEXT_PUBLIC_RPC_URL / NEXT_PUBLIC_CHAIN are not configured");
+      const contract = contractAddress();
+      const rpc = rpcUrl();
+      const chain = configuredChain();
+      if (contract === null || rpc === "" || chain === null) {
+        throw new Error(
+          `NEXT_PUBLIC_CONTRACT_ADDRESS / NEXT_PUBLIC_RPC_URL / NEXT_PUBLIC_CHAIN are not configured (chain: ${chainName()})`,
+        );
       }
       if (!/^0x[0-9a-fA-F]{64}$/.test(receipt.trim())) {
         throw new Error("receipt must be a 32-byte hex hash (0x…, 64 hex chars)");
@@ -54,7 +53,6 @@ export default function VerifyClient() {
         functionName: "verifyReceipt",
         args: [BigInt(strategyId), BigInt(epochIndex), proof, receipt.trim() as `0x${string}`],
       })) as boolean;
-
       setResult({
         ok: verified,
         text: verified

@@ -95,6 +95,13 @@ class AttestSettings(_FrozenSettings):
     evidence_dir: str = Field(default="evidence", validation_alias="COVENANT_EVIDENCE_DIR")
     strategy_id: int = Field(default=0, validation_alias="COVENANT_STRATEGY_ID")
     strategy_name: str = Field(default="vouch-sol", validation_alias="COVENANT_STRATEGY_NAME")
+    # Default metadata URI for run_register.py ("" = register without metadata).
+    strategy_metadata_uri: str = Field(
+        default="", validation_alias="COVENANT_STRATEGY_METADATA_URI"
+    )
+    # Optional kubo RPC base URL (e.g. http://127.0.0.1:5001). When set, the
+    # evidence bundle is pinned there and the commit references ipfs://<cid>.
+    ipfs_api: str = Field(default="", validation_alias="COVENANT_IPFS_API")
 
 
 class Settings(_FrozenSettings):
