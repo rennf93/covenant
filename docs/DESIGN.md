@@ -53,7 +53,7 @@ Proven therefore guarantees *consistency and commitment*, not absolute truth:
 ```
 ┌────────────┐   commits+receipts   ┌──────────────────────┐
 │ Strategy    │ ───────────────────▶ │ Stylus Contract       │
-│ operator    │   (jev adapter or    │ (Arbitrum One/Sepolia)│
+│ vouch       │   (vouch adapter or    │ (Arbitrum One/Sepolia)│
 │ (jev bot)   │    any bot SDK)      │ USDG bonds/stakes     │
 └────────────┘                       └──────────┬───────────┘
         ▲                                       │ events + state
@@ -72,7 +72,7 @@ Components (all in this monorepo):
 - `contracts/` Stylus contract (Rust). Registry, checkpoints, Merkle verification,
   challenge escrow, slashing. Unit-tested in Rust; deployment via cargo-stylus.
 - `sdk/` TypeScript SDK: typed client for operators (commit epochs, publish receipts)
-  and readers (fetch verified performance). Used by the jev adapter and the indexer.
+  and readers (fetch verified performance). Used by the vouch adapter and the indexer.
 - `web/` Next.js leaderboard: onchain reads via viem, strategy pages with receipt
   verification UI (drop a receipt + proof, see it verify), public REST API routes.
 - `docs/` this spec, threat model, deployment runbooks.
@@ -114,7 +114,7 @@ receipt = keccak256(abi.encode(
 ))
 ```
 
-## 7. Operator SDK flow (jev adapter implements this)
+## 7. Operator SDK flow (vouch adapter implements this)
 
 1. register + bond (one-time, env-gated like jev's real mode)
 2. per fill: append canonical receipt to local epoch log (SQLite/JSONL)
@@ -125,14 +125,14 @@ receipt = keccak256(abi.encode(
 
 - W1: contract complete + unit tests + local deploy on Arbitrum Sepolia;
   SDK complete; indexer MVP-but-real (RPC-driven, event-sourced).
-- W2: jev fork ("new name") with dual venue adapter (Coinbase | Arbitrum DEX) +
+- W2: vouch agent ("new name") with dual venue adapter (Coinbase | Arbitrum DEX) +
   attestation module wired to SDK; leaderboard with live strategy.
 - W3: receipt verification UI, hardening, demo video, docs, USDG integration polish,
   deploy to Arbitrum One if fees permit, submission.
 
-## 9. jev adapter spec (pending fork)
+## 9. vouch adapter spec (implemented in vouch/attest)
 
-Once the jev-trading fork lands (renamed, dual venue), the attestation module is:
+Once the vouch port lands (renamed, dual venue), the attestation module is:
 
 - `attest/ledger.py` - append-only JSONL of canonical receipts per epoch
   (venue, venue_order_id, instrument, side, size, price, fee, filled_at).

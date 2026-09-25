@@ -1,24 +1,24 @@
-# HANDOFF: Proven x jev-trading (Arbitrum Open House Singapore Buildathon)
+# HANDOFF: Proven x jev-trading (now "Vouch") (Arbitrum Open House Singapore Buildathon)
 
 Written 2026-09-25. Read this before touching anything.
 
 **STATUS UPDATE (same day): the fork is DONE and lives in this repo at
-`operator/`.** The jev copy was moved INTO the proven repo (per the user; one
-submission repo) at `operator/` with the package renamed only in product terms:
-run scripts at `operator/run_*.py`, package `operator/jev/`, attestation at
-`operator/attest/` (pure-python keccak + canonical receipts + merkle, all
-fixture-conformed to the SDK, 10 tests green: `cd operator && python3 -m
-unittest discover -s tests`). Dual venue is in `operator/jev/execution.py`
+`vouch/`.** The vouch agent copy was moved INTO the proven repo (per the user; one
+submission repo) at `vouch/` with the package renamed only in product terms:
+run scripts at `vouch/run_*.py`, package `vouch/vouch/`, attestation at
+`vouch/attest/` (pure-python keccak + canonical receipts + merkle, all
+fixture-conformed to the SDK, 10 tests green: `cd vouch && python3 -m
+unittest discover -s tests`). Dual venue is in `vouch/vouch/execution.py`
 (paper / coinbase / arb-paper; arb-paper is the honest "Arbitrum DEX paper
 venue" priced from the live feed, booking venue class ArbitrumDex). Shadow
 wiring is done: `run_shadow.py --attest` (or PROVEN_ATTEST=1) records receipts
 per fill, closes an epoch at each System-2 boundary (epoch 0 netFlow carries
 the seed capital), and writes evidence bundles; chain commits fire only when
 PROVEN_RPC_URL/PRIVATE_KEY/CONTRACT_ADDRESS are all set (ledger-only mode
-otherwise). The node bridge is `operator/attest/bridge.mjs` (viem resolved via
+otherwise). The node bridge is `vouch/attest/bridge.mjs` (viem resolved via
 the sdk package; actions register/commit/finalize/verify). REMAINING: funded
 Arbitrum Sepolia key -> deploy (section "Deployment"), register the strategy,
-then the onchain demo run. Original jev-trading repo was never touched.
+then the onchain demo run. Original jev-trading (now "Vouch") repo was never touched.
 
 ---
 
@@ -141,14 +141,14 @@ Protocol invariants worth knowing (all enforced/tested):
   TS packages compile to dist (tsc) and tests run on dist; imports in TS use
   `.js` extensions (NodeNext).
 
-## 5. THE ACTUAL TASK: jev-trading fork + integration
+## 5. THE ACTUAL TASK: vouch port + integration
 
-Original repo: /Users/renzof/Documents/GitHub/ZZZ/side projects/jev-trading
+Original repo: /Users/renzof/Documents/GitHub/ZZZ/side projects/jev-trading (now "Vouch")
 **IMPORTANT: do not touch the original. Another session may still be working on
 it. COPY it to a new directory (suggest "side projects/<new-name>", pick a good
 product name; the platform itself is called "Proven") and work only in the copy.**
 
-What jev-trading is today (README is accurate):
+What jev-trading (now "Vouch") is today (README is accurate):
 - Two-model loop: laya (fast non-autoregressive model, HTTP server) as System-1
   making per-tick decisions; local qwen3.8-27b via llama.cpp as System-2
   reviewing each epoch and rewriting System-1's rules. Every System-2 proposal
@@ -192,7 +192,7 @@ What jev-trading is today (README is accurate):
    - Safety interlocks mirror jev's existing rails: onchain commits allowed in
      shadow mode only when explicitly enabled; real mode requires the human
      flip. NEVER let an autonomous loop trigger real-money trades (this is a
-     standing rule in the jev repo).
+     standing rule in the vouch repo).
 3. **Wire the demo**: run the fork in shadow mode against live SOL data,
    committing one epoch per the challenge window; keep the indexer running so
    the web leaderboard shows the strategy live.
@@ -245,9 +245,9 @@ What jev-trading is today (README is accurate):
 ## 7. Verify-your-start checklist for the next session
 
 1. `cd /Users/renzof/Documents/GitHub/ZZZ/proven && git log --oneline` - expect
-   6-7 commits ending at the jev adapter spec.
+   6-7 commits ending at the vouch adapter spec.
 2. `pnpm install && pnpm -r test` - expect sdk 8/8, indexer 5/5.
 3. `cd contracts/proven && cargo test` - expect 11/11.
 4. `pnpm --filter @proven/web run build` - expect clean build.
 5. Read docs/DESIGN.md sections 3 and 9. Then check whether the other session
-   is done with jev-trading (git log there / ask the user) before copying it.
+   is done with jev-trading (now "Vouch") (git log there / ask the user) before copying it.
