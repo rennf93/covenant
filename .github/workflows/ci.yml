@@ -18,6 +18,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: merkle fixtures are fresh (sdk regen vs committed)
+        run: |
+          node sdk/scripts/gen-fixtures.ts
+          git diff --exit-code contracts/merkle-core/tests/fixtures/merkle.json
       - run: pnpm -r test
       - name: architecture (dependency-cruiser)
         run: pnpm exec depcruise sdk/src indexer/src web/lib web/app --config .dependency-cruiser.cjs
@@ -35,15 +39,29 @@ jobs:
         with:
           toolchain: "1.91.0"
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: contracts
+      - name: rustfmt (both crates)
+        run: |
+          cd contracts/merkle-core && cargo fmt --check
+          cd contracts/covenant && cargo fmt --check
+      - name: clippy (both crates)
+        run: |
+          cd contracts/merkle-core && cargo clippy --all-targets -- -D warnings
+          cd contracts/covenant && cargo clippy --all-targets -- -D warnings
       - name: merkle-core tests
         working-directory: contracts/merkle-core
         run: cargo test
       - name: contract tests
         working-directory: contracts/covenant
         run: cargo test
+      - name: ABI stays in sync (export-abi vs committed abi/ICovenant.sol)
+        working-directory: contracts/covenant
+        run: |
+          cargo run --quiet --features export-abi > /tmp/ICovenant.sol
+          diff -u abi/ICovenant.sol /tmp/ICovenant.sol
       - name: wasm32 release build
         working-directory: contracts/covenant
         run: cargo build --release --target wasm32-unknown-unknown

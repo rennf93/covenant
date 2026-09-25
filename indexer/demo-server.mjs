@@ -10,7 +10,10 @@
  * a top-then-fade, a range sawtooth, an honest loser, a high flyer, and an
  * early fraud whose late epochs were invalidated.
  *
- * Start: node indexer/demo-server.mjs   (PORT env, default 8788)
+ * Wire format: identical to the real indexer (indexer/src/server.ts). Every
+ * USDG amount is an integer BASE-UNIT string (6 decimals, no decimal point);
+ * spark stays plain human numbers; committedAt is ISO. Start:
+ * node indexer/demo-server.mjs   (PORT env, default 8788)
  * This is NOT the real indexer and never touches a chain.
  */
 
@@ -21,6 +24,12 @@ const PORT = Number(process.env.PORT ?? 8788);
 const now = Date.now() / 1000;
 const HOUR = 3600;
 const EPOCH_SPACING = 4 * HOUR;
+/** Demo proxy for commit -> finalize lag; the real indexer uses the EpochFinalized block time. */
+const FINALIZE_LAG = HOUR;
+/** Window/pagination defaults mirror the real API. */
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 500;
+const RETURN_WAD = 10n ** 18n;
 
 /** Deterministic PRNG (mulberry32): same seed, same series, every run. */
 function mulberry32(seed) {
@@ -33,7 +42,8 @@ function mulberry32(seed) {
   };
 }
 
-const round6 = (x) => x.toFixed(6);
+/** Human USDG to an integer base-unit string (6 decimals). */
+const base6 = (x) => String(Math.round(x * 1e6));
 
 const hexRoot = (s) =>
   "0x" + Buffer.from(s.padEnd(28, "demo").slice(0, 28)).toString("hex").padEnd(64, "0");
@@ -57,20 +67,25 @@ function buildEpochs(spec) {
     if (i > 0) {
       // one move per epoch; pnl is exactly the equity delta (netFlow is 0)
       const move = spec.drift(i) + (rand() * 2 - 1) * spec.vol;
-      pnl = round6(equity * move);
+      pnl = equity * move;
       equity = Math.max(1, equity * (1 + move));
     }
+    const committedAt = new Date((startTs + i * EPOCH_SPACING) * 1000).toISOString();
     epochs.push({
       epochIndex: String(i),
-      equity: round6(i === 0 ? spec.seedEquity : equity),
-      netFlow: i === 0 ? round6(spec.seedEquity) : "0.000000",
+      // base-unit integer strings, like the chain emits via bigint toString
+      equity: base6(i === 0 ? spec.seedEquity : equity),
+      netFlow: i === 0 ? base6(spec.seedEquity) : "0",
       tradesRoot: hexRoot(`${spec.name}-${i}`),
       evidenceUri: `evidence/${spec.name}/epoch-${i}.json`,
       status,
-      committedAt: new Date((startTs + i * EPOCH_SPACING) * 1000).toISOString(),
+      committedAt,
+      challenger: null,
+      stake: "0",
       // PnL exists only on finalized epochs, like the chain: commit -> pnl is
       // set at finalize; pending, challenged, and invalidated carry none.
-      pnl: status === 1 ? (i === 0 ? "0.000000" : pnl) : null,
+      pnl: status === 1 ? (i === 0 ? "0" : base6(pnl)) : null,
+      finalizeAtSec: status === 1 ? startTs + i * EPOCH_SPACING + FINALIZE_LAG : null,
     });
   }
   return epochs;
@@ -214,29 +229,28 @@ const strategies = SPECS.map((spec) => ({
   owner: spec.owner,
   name: spec.name,
   status: spec.strategyStatus,
-  bond: spec.bond,
+  bond: base6(Number(spec.bond)),
   epochs: buildEpochs(spec),
 }));
 
 /**
- * Mirrors indexer/src/state.ts rederive(): cumulative PnL and headline return
- * come from finalized epochs only; the return base is the first finalized
- * equity so deposits do not inflate it.
+ * Mirrors indexer/src/state.ts computeDerived(): cumulative PnL and headline
+ * return come from finalized epochs only; the return base is the first
+ * finalized equity so deposits do not inflate it. Integer arithmetic on
+ * base-unit strings throughout, matching the reducer's bigint math.
  */
 function derive(s) {
   const fin = s.epochs
     .filter((e) => e.status === 1)
     .sort((a, b) => Number(a.epochIndex) - Number(b.epochIndex));
-  const cumulativePnl = fin.reduce((acc, e) => acc + Number(e.pnl ?? 0), 0);
-  const base = fin.length > 0 ? Number(fin[0].equity) : 0;
-  let returnWad = null;
-  if (base !== 0) {
-    returnWad = String(Math.round((cumulativePnl / base) * 1e18));
-  }
+  const cumulativePnl = fin.reduce((acc, e) => acc + BigInt(e.pnl ?? "0"), 0n);
+  const base = fin.length > 0 ? BigInt(fin[0].equity) : 0n;
+  const absBase = base < 0n ? -base : base;
+  const returnWad = absBase !== 0n ? ((cumulativePnl * RETURN_WAD) / absBase).toString() : null;
   const count = (st) => s.epochs.filter((e) => e.status === st).length;
   return {
-    equity: fin.length > 0 ? fin[fin.length - 1].equity : null,
-    cumulativePnl: round6(cumulativePnl),
+    equity: fin.length > 0 ? fin[fin.length - 1].equity : "0",
+    cumulativePnl: cumulativePnl.toString(),
     returnWad,
     finalizedEpochs: count(1),
     pendingEpochs: count(0),
@@ -247,20 +261,70 @@ function derive(s) {
 
 /**
  * Mirrors indexer/src/server.ts sparkSeries(): finalized epochs only, ascending
- * epoch order, last 32 points, plain human numbers (demo equities are already
- * human strings, the real indexer converts bigint base units / 1e6); null below
- * 2 finalized checkpoints.
+ * epoch order, last 32 points, plain human numbers (base units / 1e6); null
+ * below 2 finalized checkpoints.
  */
 function sparkOf(epochs) {
   const points = epochs
     .filter((e) => e.status === 1 && e.equity !== null)
     .sort((a, b) => Number(a.epochIndex) - Number(b.epochIndex))
     .slice(-32)
-    .map((e) => Number(e.equity));
+    .map((e) => Number(e.equity) / 1e6);
   return points.length >= 2 ? points : null;
 }
 
-function leaderboardRow(s) {
+/**
+ * Mirrors windowReturn() on the real API: sum of pnl over finalized epochs
+ * whose finalize time falls in the window, over the first such equity. The
+ * demo approximates finalize time as committedAt + FINALIZE_LAG since it has
+ * no separate finalize event.
+ */
+function windowReturnOf(s, cutoffSec) {
+  const fin = s.epochs
+    .filter((e) => e.status === 1)
+    .sort((a, b) => Number(a.epochIndex) - Number(b.epochIndex));
+  const inWindow =
+    cutoffSec === null
+      ? fin
+      : fin.filter((e) => e.finalizeAtSec !== null && e.finalizeAtSec >= cutoffSec);
+  if (inWindow.length === 0) return null;
+  const base = BigInt(inWindow[0].equity);
+  if (base === 0n) return null;
+  const pnlSum = inWindow.reduce((acc, e) => acc + BigInt(e.pnl ?? "0"), 0n);
+  const absBase = base < 0n ? -base : base;
+  return ((pnlSum * RETURN_WAD) / absBase).toString();
+}
+
+/** Best windowed return first; null returns sort last (mirrors the real API). */
+function sortedStrategies(cutoffSec) {
+  const ret = (s) => windowReturnOf(s, cutoffSec);
+  return [...strategies].sort((a, b) => {
+    const ra = ret(a);
+    const rb = ret(b);
+    if (ra === null && rb === null) return Number(a.id) - Number(b.id);
+    if (ra === null) return 1;
+    if (rb === null) return -1;
+    return BigInt(rb) > BigInt(ra) ? 1 : BigInt(rb) < BigInt(ra) ? -1 : Number(a.id) - Number(b.id);
+  });
+}
+
+function windowSeconds(w) {
+  if (w === "all" || w === null) return null;
+  const m = /^(\d+)d$/.exec(w);
+  return m === null ? undefined : Number(m[1]) * 86400;
+}
+
+function paginationOf(url) {
+  const rawLimit = Number(url.searchParams.get("limit") ?? DEFAULT_LIMIT);
+  const rawOffset = Number(url.searchParams.get("offset") ?? 0);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(rawLimit)))
+    : DEFAULT_LIMIT;
+  const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
+  return { limit, offset };
+}
+
+function leaderboardRow(s, cutoffSec) {
   const derived = derive(s);
   return {
     id: s.id,
@@ -272,11 +336,13 @@ function leaderboardRow(s) {
     finalizedEpochs: derived.finalizedEpochs,
     totalEpochs: s.epochs.length,
     spark: sparkOf(s.epochs),
+    windowReturnWad: windowReturnOf(s, cutoffSec),
   };
 }
 
 const server = createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   const url = new URL(req.url, "http://localhost");
   console.error(`[demo] ${req.method} ${url.pathname}`);
   if (url.pathname === "/health") {
@@ -284,7 +350,17 @@ const server = createServer((req, res) => {
     return;
   }
   if (url.pathname === "/strategies") {
-    res.end(JSON.stringify({ demo: true, rows: strategies.map(leaderboardRow) }));
+    const win = windowSeconds(url.searchParams.get("window") ?? "all");
+    if (win === undefined) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ demo: true, error: "invalid window; use 7d, 30d, or all" }));
+      return;
+    }
+    const cutoff = win === null ? null : Math.floor(Date.now() / 1000) - win;
+    const sorted = sortedStrategies(cutoff);
+    const { limit, offset } = paginationOf(url);
+    const rows = sorted.slice(offset, offset + limit).map((s) => leaderboardRow(s, cutoff));
+    res.end(JSON.stringify({ demo: true, rows, pagination: { total: sorted.length, limit, offset } }));
     return;
   }
   const m = url.pathname.match(/^\/strategies\/(\d+)$/);
@@ -295,7 +371,9 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify({ demo: true, error: "not found" }));
       return;
     }
-    res.end(JSON.stringify({ demo: true, ...leaderboardRow(s), epochs: s.epochs }));
+    // strip the internal finalize proxy before serving, like the real API
+    const epochs = s.epochs.map(({ finalizeAtSec, ...rest }) => rest);
+    res.end(JSON.stringify({ demo: true, ...leaderboardRow(s, null), epochs }));
     return;
   }
   res.statusCode = 404;

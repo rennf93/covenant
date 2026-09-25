@@ -21,13 +21,11 @@ pub(crate) fn register_strategy(
     }
     let sender = c.vm().msg_sender();
     let bond = c.bond_amount.get();
-
-    c.usdg_transfer_from(sender, c.vm().contract_address(), bond)?;
-
     let id = c.strategy_count.get() + U256::from(1);
-    c.strategy_count.set(id);
     let now = c.vm().block_timestamp();
 
+    // Effects before the token interaction (checks, effects, interactions).
+    c.strategy_count.set(id);
     {
         let mut strategy = c.strategies.setter(id);
         strategy.owner.set(sender);
@@ -37,6 +35,7 @@ pub(crate) fn register_strategy(
         strategy.status.set(U8::from(STATUS_ACTIVE));
         strategy.created_at.set(U64::from(now));
     }
+    c.usdg_transfer_from(sender, c.vm().contract_address(), bond)?;
 
     c.vm().log(StrategyRegistered {
         strategy_id: id,

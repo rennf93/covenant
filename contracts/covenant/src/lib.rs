@@ -15,10 +15,10 @@
 //! - [`types`]: ABI surface types (events, IUSDG, errors, lifecycle constants)
 //! - [`storage`]: the sol_storage! layout (consensus-critical field order)
 //! - [`internal`]: guards + USDG transfer helpers (not part of the ABI)
-//! - [`admin`]: constructor, parameters, pause, treasury
+//! - [`admin`]: constructor, parameters, pause, treasury, admin handover
 //! - [`registry`]: registration + bond escrow
 //! - [`epochs`]: commit + finalize (performance accounting)
-//! - [`challenge`]: stake, resolve, slash economics
+//! - [`challenge`]: stake, resolve, resolver deadline, slash economics
 //! - [`verify`]: onchain Merkle receipt verification
 //! - [`views`]: read-only state access
 
@@ -93,6 +93,24 @@ impl Covenant {
         admin::withdraw_treasury(self, to, amount)
     }
 
+    /// Two-step admin handover, step 1: propose a successor. Only the
+    /// proposed successor can accept (see [`Covenant::accept_admin`]);
+    /// proposing the zero address clears a pending proposal.
+    pub fn transfer_admin(&mut self, new_admin: Address) -> Result<(), CovenantError> {
+        admin::transfer_admin(self, new_admin)
+    }
+
+    /// Two-step admin handover, step 2: the proposed successor accepts and
+    /// becomes the admin. Reverts for anyone else.
+    pub fn accept_admin(&mut self) -> Result<(), CovenantError> {
+        admin::accept_admin(self)
+    }
+
+    /// The currently proposed admin, zero when no handover is pending.
+    pub fn pending_admin(&self) -> Address {
+        self.pending_admin.get()
+    }
+
     /// Registers a strategy and escrows the performance bond from the caller.
     pub fn register_strategy(
         &mut self,
@@ -102,7 +120,9 @@ impl Covenant {
         registry::register_strategy(self, name, metadata_uri)
     }
 
-    /// Commits an epoch checkpoint. Epochs are strictly sequential; the ending
+    /// Commits an epoch checkpoint. Epochs are strictly sequential and the
+    /// previous checkpoint must be Finalized first, so a pending or
+    /// challenged epoch blocks later commits until it resolves. The ending
     /// equity is in USDG base units and may be negative.
     pub fn commit_epoch(
         &mut self,
@@ -124,8 +144,10 @@ impl Covenant {
         )
     }
 
-    /// Permissionless: finalizes a pending checkpoint whose challenge window
-    /// has elapsed, applying its performance accounting.
+    /// Permissionless (and pause-exempt: it settles accounting, moves no
+    /// tokens): finalizes a pending checkpoint whose challenge window has
+    /// elapsed, applying its performance accounting. Epochs finalize in
+    /// strict order.
     pub fn finalize_epoch(
         &mut self,
         strategy_id: U256,
@@ -135,7 +157,8 @@ impl Covenant {
     }
 
     /// Challenges a pending epoch by staking USDG. Only one challenger at a
-    /// time; dismissal closes the epoch, an upheld challenge ends the strategy.
+    /// time; dismissal closes the epoch, an upheld challenge ends the
+    /// strategy. Gated by pause.
     pub fn challenge_epoch(
         &mut self,
         strategy_id: U256,
@@ -145,8 +168,10 @@ impl Covenant {
         challenge::challenge(self, strategy_id, epoch_index, reason)
     }
 
-    /// Resolver decision: upheld slashes the operator bond, dismisses forfeit
-    /// the stake to the treasury.
+    /// Resolution: the resolver may decide at any time; once the challenge is
+    /// at least three challenge windows old, anyone may resolve and the
+    /// decision is forced-dismiss with the stake refunded (the event carries
+    /// `forced = true`). Gated by pause.
     pub fn resolve_challenge(
         &mut self,
         strategy_id: U256,

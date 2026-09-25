@@ -29,7 +29,8 @@ function revealStyle(i: number): CSSProperties {
 function buildPulseStats(rows: LeaderboardRow[]) {
   const totalEpochs = rows.reduce((acc, r) => acc + r.totalEpochs, 0);
   const finalized = rows.reduce((acc, r) => acc + r.finalizedEpochs, 0);
-  const bonded = rows.reduce((acc, r) => acc + Number(r.bond), 0);
+  // bond arrives as an integer base-unit string (6 decimals)
+  const bonded = rows.reduce((acc, r) => acc + Number(r.bond) / 1e6, 0);
   return {
     strategies: rows.length.toLocaleString("en-US"),
     epochs: totalEpochs.toLocaleString("en-US"),

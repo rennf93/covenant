@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm run build",
-    "test": "pnpm run build && node --test dist/test/*.test.js"
+    "test": "pnpm run build && node --test dist/test/*.test.js",
+    "finalize": "pnpm run build && node scripts/finalize-due.ts"
   },
   "dependencies": {
     "viem": "^2.21.0"

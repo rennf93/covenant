@@ -12,3 +12,4 @@ hex = "0.4"
 
 [dev-dependencies]
 rand = "0.8"
+proptest = "1"

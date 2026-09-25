@@ -18,6 +18,10 @@ sol_storage! {
         uint256 strategy_count;
         mapping(uint256 => Strategy) strategies;
         mapping(uint256 => mapping(uint64 => Checkpoint)) checkpoints;
+        // Two-step admin handover: the proposed successor, zero when none.
+        // Appended after the original layout (see the consensus-critical note
+        // above); the contract has not been deployed at this tag.
+        address pending_admin;
     }
 }
 

@@ -12,6 +12,8 @@ import {
 } from "viem";
 import { covenantAbi } from "./abi.js";
 import type { CommitPayload } from "./epoch.js";
+import { writeAndWait, type TxResult } from "./tx.js";
+import { wrapContractError } from "./errors.js";
 
 /**
  * Canonical checkpoint/strategy statuses, mirrored from the contract.
@@ -175,8 +177,10 @@ export class CovenantReader {
 }
 
 /**
- * Operator client: sends commits and lifecycle transactions from a wallet.
- * The wallet must have approved the USDG bond before registerStrategy.
+ * Operator client: sends commits and lifecycle transactions from a wallet and
+ * waits for every receipt (TxResult = hash + mined receipt). The wallet must
+ * have approved the USDG bond before registerStrategy. Challengers should use
+ * CovenantChallenger, which also handles the stake approval.
  */
 export class CovenantOperator {
   readonly address: Address;
@@ -189,84 +193,81 @@ export class CovenantOperator {
     this.reader = new CovenantReader(address, publicClient);
   }
 
+  private async send(
+    call: { functionName: string; args?: readonly unknown[] },
+    account: Address,
+  ): Promise<TxResult> {
+    try {
+      return await writeAndWait({
+        client: this.reader.client,
+        wallet: this.wallet,
+        address: this.address,
+        abi: covenantAbi,
+        functionName: call.functionName,
+        args: call.args,
+        account,
+      });
+    } catch (e) {
+      throw wrapContractError(e);
+    }
+  }
+
+  /** Registers a strategy (after the bond approval) and waits for the receipt. */
   async registerStrategy(args: {
     account: Address;
     name: string;
     metadataUri: string;
-  }): Promise<{ hash: `0x${string}` }> {
-    const hash = await this.wallet.writeContract({
-      address: this.address,
-      abi: covenantAbi,
-      functionName: "registerStrategy",
-      args: [args.name, args.metadataUri],
-      account: args.account,
-      chain: this.wallet.chain,
-    });
-    if (!hash) throw new Error("wallet returned no transaction hash");
-    return { hash };
+  }): Promise<TxResult> {
+    return this.send({ functionName: "registerStrategy", args: [args.name, args.metadataUri] }, args.account);
   }
 
   /**
-   * Commits an epoch built with EpochBuilder. Callers choose confirmation
-   * handling; `waitForReceipt` returns the tx receipt when desired.
+   * Commits an epoch built with EpochBuilder and waits for the receipt.
    */
   async commitEpoch(args: {
     account: Address;
     payload: CommitPayload;
-  }): Promise<{ hash: `0x${string}` }> {
+  }): Promise<TxResult> {
     const { payload } = args;
-    const hash = await this.wallet.writeContract({
-      address: this.address,
-      abi: covenantAbi,
-      functionName: "commitEpoch",
-      args: [
-        payload.strategyId,
-        payload.epochIndex,
-        payload.equityUsdg,
-        payload.netFlowUsdg,
-        payload.tradesRoot,
-        payload.evidenceURI,
-      ],
-      account: args.account,
-      chain: this.wallet.chain,
-    });
-    if (!hash) throw new Error("wallet returned no transaction hash");
-    return { hash };
+    return this.send(
+      {
+        functionName: "commitEpoch",
+        args: [
+          payload.strategyId,
+          payload.epochIndex,
+          payload.equityUsdg,
+          payload.netFlowUsdg,
+          payload.tradesRoot,
+          payload.evidenceURI,
+        ],
+      },
+      args.account,
+    );
   }
 
+  /** Permissionless after the challenge window; applies the epoch's PnL. */
   async finalizeEpoch(args: {
     account: Address;
     strategyId: bigint;
     epochIndex: bigint;
-  }): Promise<{ hash: `0x${string}` }> {
-    const hash = await this.wallet.writeContract({
-      address: this.address,
-      abi: covenantAbi,
-      functionName: "finalizeEpoch",
-      args: [args.strategyId, args.epochIndex],
-      account: args.account,
-      chain: this.wallet.chain,
-    });
-    if (!hash) throw new Error("wallet returned no transaction hash");
-    return { hash };
+  }): Promise<TxResult> {
+    return this.send(
+      { functionName: "finalizeEpoch", args: [args.strategyId, args.epochIndex] },
+      args.account,
+    );
   }
 
+  /** Stakes USDG against a pending epoch (approve the stake to the contract first). */
   async challengeEpoch(args: {
     account: Address;
     strategyId: bigint;
     epochIndex: bigint;
     reason: string;
-  }): Promise<{ hash: `0x${string}` }> {
-    const hash = await this.wallet.writeContract({
-      address: this.address,
-      abi: covenantAbi,
-      functionName: "challengeEpoch",
-      args: [args.strategyId, args.epochIndex, args.reason],
-      account: args.account,
-      chain: this.wallet.chain,
-    });
-    if (!hash) throw new Error("wallet returned no transaction hash");
-    return { hash };
+  }): Promise<TxResult> {
+    return this.send(
+      { functionName: "challengeEpoch", args: [args.strategyId, args.epochIndex, args.reason] },
+      args.account,
+    );
   }
 }
 

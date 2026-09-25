@@ -42,13 +42,13 @@ Zero values for any of these revert at construction.
 
 ```bash
 cd contracts/covenant
-cargo test                                        # 11/11 before you deploy
+cargo test                                        # 28/28 before you deploy
 cargo stylus deploy --network sepolia \
   --constructor-args <USDG> <RESOLVER> <BOND> <STAKE> <WINDOW_SECONDS>
 cargo stylus verify --network sepolia             # source verification
 ```
 
-Note the deployed proxy address and the deploy block number (the indexer
+Note the deployed contract address and the deploy block number (the indexer
 needs both). Mock USDG labeling rule: if the Paxos test faucet is
 unavailable and you stage against a 6-decimal mock USDG, the demo materials
 MUST label it as mock; the submission plan uses real USDG (see
@@ -74,10 +74,11 @@ Env (parsed in `indexer/src/main.ts::env`):
 | Var | Required | Meaning |
 | --- | --- | --- |
 | `RPC_URL` | yes | Arbitrum RPC endpoint |
-| `CONTRACT_ADDRESS` | yes | deployed Covenant proxy |
+| `CONTRACT_ADDRESS` | yes | deployed Covenant contract |
 | `CHAIN` | no | `arbitrum-sepolia` (default) or `arbitrum` |
-| `START_BLOCK` | no | deploy block; defaults to the chain head AT STARTUP |
+| `START_BLOCK` | no | deploy block; defaults to the persisted cursor, then the chain head AT STARTUP |
 | `PORT` | no | default 8787 |
+| `STATE_FILE` | no | atomic JSON snapshot written after every batch and resumed on start (default `./covenant-state.json`) |
 
 By hand:
 
@@ -98,9 +99,12 @@ RPC_URL=https://sepolia-rollup.arbitrum.io/rpc CONTRACT_ADDRESS=0x… \
   docker compose up --build
 ```
 
-The API serves `GET /health`, `GET /strategies`, `GET /strategies/:id`
-(`indexer/src/server.ts`). Sanity check: `curl localhost:8787/health`
-returns the last indexed block.
+The API serves `GET /health`, `GET /strategies`
+(`?window=7d|30d|all`, `?limit`, `?offset`), `GET /strategies/:id`, and
+`GET /stream` (Server-Sent Events: full snapshot on connect and after every
+indexed batch) in `indexer/src/server.ts`. Every USDG amount in a response is
+a base-unit integer string (6 decimals); `committedAt`/`createdAt` are ISO.
+Sanity check: `curl localhost:8787/health` returns the last indexed block.
 
 ## 4. Run the web leaderboard
 
@@ -129,7 +133,7 @@ Agent env (full list in `vouch/.env.example`; config is read in
 | `COVENANT_ATTEST=1` | enables the attestation path (receipts + evidence always; chain writes only when connected) |
 | `COVENANT_RPC_URL` | onchain mode: Arbitrum RPC |
 | `COVENANT_PRIVATE_KEY` | onchain mode: funded operator EOA key |
-| `COVENANT_CONTRACT_ADDRESS` | onchain mode: deployed Covenant proxy |
+| `COVENANT_CONTRACT_ADDRESS` | onchain mode: deployed Covenant contract |
 | `COVENANT_CHAIN` | default `arbitrum-sepolia` |
 | `COVENANT_STRATEGY_ID` / `COVENANT_STRATEGY_NAME` | the registered strategy |
 
@@ -165,13 +169,27 @@ The full arc, end to end:
 3. **Finalize**: once each epoch's challenge window (5 min in staging)
    elapses, anyone may finalize
    (`CovenantOperator.finalizeEpoch` or the bridge `finalize` action). The
-   contract applies PnL accounting; the leaderboard picks it up.
+   contract applies PnL accounting; the leaderboard picks it up. Turnkey:
+   `pnpm --filter @covenant/sdk run finalize` polls every strategy, lists the
+   checkpoints whose window has elapsed, and finalizes them (DRY-RUN by
+   default, `--execute` to send):
+
+   | Var | Required | Meaning |
+   | --- | --- | --- |
+   | `RPC_URL` | yes | Arbitrum RPC endpoint |
+   | `CONTRACT_ADDRESS` | yes | deployed Covenant proxy |
+   | `PRIVATE_KEY` | yes (with `--execute`) | funded EOA key sending the finalize txs |
+   | `CHAIN` | no | `arbitrum-sepolia` (default) or `arbitrum` |
 4. **Challenge paths**, to show the economics: `challengeEpoch` a pending
    epoch with a second account (stake is escrowed, status flips to
    Challenged), then resolve both ways with the resolver:
    - dismiss: stake forfeited to the treasury, epoch finalizes;
    - uphold: epoch invalidated, strategy suspended, bond slashed to the
      challenger.
+   If the resolver never shows up, the contract self-heals: after
+   `committed_at + 4 * challenge_window` (20 minutes at the 5-minute staging
+   window) anyone may force a dismissal, which refunds the stake instead of
+   forfeiting it (`ChallengeResolved` with `forced = true`).
    The indexer and web UI reflect each transition from events alone.
 5. **Browser verify**: open the web verify page, paste a receipt and its
    Merkle proof from the evidence bundle, and watch it verify against the
@@ -208,7 +226,7 @@ The full arc, end to end:
 - **Self-audit failure.** If the agent's own first receipt does not verify
   onchain after a commit, the agent raises rather than staying silent. That
   is a protocol emergency: check that the contract address points at the
-  deployed Covenant proxy and that the SDK/agent fixtures are in sync
+  deployed Covenant contract and that the SDK/agent fixtures are in sync
   ([protocol.md](protocol.md), section 4).
 - **Web verify page does nothing.** It needs all three `NEXT_PUBLIC_*` vars
   at build/dev time; it talks to the RPC directly, not to the indexer

@@ -14,7 +14,7 @@ PYTHON ?= python3
 
 .DEFAULT_GOAL := help
 .PHONY: help install ts-install ts-test ts-build ts-arch ts-coverage \
-        contract-test contract-build vouch-install vouch-lint vouch-format \
+        contract-test contract-lint contract-build vouch-install vouch-lint vouch-format \
         vouch-type vouch-test vouch-imports vouch-coverage check quality-fix
 
 help: ## Show this help
@@ -47,6 +47,10 @@ contract-test: ## merkle-core + covenant cargo suites
 	cd $(MERKLE_DIR) && cargo test
 	cd $(CONTRACT_DIR) && cargo test
 
+contract-lint: ## rustfmt + clippy on both Rust crates (mirrors CI)
+	cd $(MERKLE_DIR) && cargo fmt --check && cargo clippy --all-targets -- -D warnings
+	cd $(CONTRACT_DIR) && cargo fmt --check && cargo clippy --all-targets -- -D warnings
+
 contract-build: ## wasm32 release build (what stylus deploy ships)
 	cd $(CONTRACT_DIR) && cargo build --release --target wasm32-unknown-unknown
 
@@ -77,7 +81,7 @@ vouch-coverage: ## coverage floors: package 50 lines, attest core 85
 	cd $(VOUCH_DIR) && $(PYTHON) -m coverage report --include="vouch/attest/*" --fail-under=85 | tail -1
 
 # --- Gates ------------------------------------------------------------------
-check: ts-test ts-arch ts-coverage ts-build contract-test vouch-lint vouch-type \
-       vouch-imports vouch-coverage vouch-test ## the merge gate (mirrors CI)
+check: ts-test ts-arch ts-coverage ts-build contract-test contract-lint vouch-lint \
+       vouch-type vouch-imports vouch-coverage vouch-test ## the merge gate (mirrors CI)
 
 quality-fix: vouch-format ## apply all safe autofixes

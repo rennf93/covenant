@@ -12,9 +12,16 @@ use crate::types::*;
 
 // Free functions so the single #[public] impl in lib.rs stays thin;
 // this module owns the logic.
-/// Commits an epoch checkpoint. Epochs are strictly sequential; the ending
-/// equity is in USDG base units and may be negative. `trades_root` is the
-/// sorted-pair Merkle root over the epoch's canonical receipt hashes.
+/// Commits an epoch checkpoint. Epochs are strictly sequential AND strictly
+/// ordered against finalization: the previous checkpoint must be `Finalized`
+/// before a later epoch may commit. The ending equity is in USDG base units
+/// and may be negative. `trades_root` is the sorted-pair Merkle root over the
+/// epoch's canonical receipt hashes.
+///
+/// The ordering rule costs liveness by design: an unresolved (Pending or
+/// Challenged) checkpoint blocks all later commits until it resolves, so a
+/// disputed epoch cannot be buried under newer, clean ones. See the resolver
+/// deadline in [`crate::challenge::resolve`] for the anti-deadlock valve.
 pub(crate) fn commit(
     c: &mut Covenant,
     strategy_id: U256,
@@ -51,12 +58,17 @@ pub(crate) fn commit(
     }
     let now = U64::from(c.vm().block_timestamp());
     if epoch_index > U64::ZERO {
-        let prev_committed_at = c
-            .checkpoints
-            .getter(strategy_id)
-            .get(epoch_index - U64::from(1))
-            .committed_at
-            .get();
+        let epoch_map = c.checkpoints.getter(strategy_id);
+        let (prev_status, prev_committed_at) = {
+            let prev = epoch_map.get(epoch_index - U64::from(1));
+            (prev.status.get().to::<u8>(), prev.committed_at.get())
+        };
+        // Sequential accountability: the previous epoch must have settled.
+        if prev_status != CP_FINALIZED {
+            return Err(CovenantError::PreviousEpochNotFinalized(
+                PreviousEpochNotFinalized {},
+            ));
+        }
         if prev_committed_at >= now {
             return Err(CovenantError::EpochNotSequential(EpochNotSequential {}));
         }
@@ -91,15 +103,44 @@ pub(crate) fn commit(
     Ok(())
 }
 
-/// Permissionless: finalizes a pending checkpoint whose challenge window
-/// has elapsed, applying its performance accounting.
+/// Permissionless: finalizes a pending checkpoint whose challenge window has
+/// elapsed, applying its performance accounting. Deliberately NOT gated by
+/// pause: finalization settles accounting only, moves no tokens, and leaving
+/// it open cannot help an attacker. Epochs finalize strictly in order, so
+/// `finalize` also refuses to skip past an unsettled predecessor (defense in
+/// depth: `commit` already refuses to create that state).
 pub(crate) fn finalize(
     c: &mut Covenant,
     strategy_id: U256,
     epoch_index: U64,
 ) -> Result<(), CovenantError> {
-    if c.strategies.getter(strategy_id).owner.get().is_zero() {
+    // Existence: a zero owner means an unregistered strategy, and an index at
+    // or past `epoch_count` was never committed. Without these checks the
+    // zero-initialized mapping would read as a Pending epoch at time 0 and
+    // anyone could "finalize" a phantom epoch, zeroing the strategy's equity.
+    let (owner, epoch_count) = {
+        let s = c.strategies.getter(strategy_id);
+        (s.owner.get(), s.epoch_count.get())
+    };
+    if owner.is_zero() {
         return Err(CovenantError::StrategyNotFound(StrategyNotFound {}));
+    }
+    if epoch_index >= epoch_count {
+        return Err(CovenantError::EpochUnknown(EpochUnknown {}));
+    }
+    if epoch_index > U64::ZERO {
+        let prev_status = c
+            .checkpoints
+            .getter(strategy_id)
+            .get(epoch_index - U64::from(1))
+            .status
+            .get()
+            .to::<u8>();
+        if prev_status != CP_FINALIZED {
+            return Err(CovenantError::PreviousEpochNotFinalized(
+                PreviousEpochNotFinalized {},
+            ));
+        }
     }
 
     // Read phase.

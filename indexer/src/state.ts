@@ -16,7 +16,10 @@ export interface EpochView {
   evidenceUri: string | null;
   /** 0 pending, 1 finalized, 2 challenged, 3 invalidated. */
   status: number;
-  committedAt: bigint | null;
+  /** ISO 8601 commit time (block timestamp of EpochCommitted); null when the block time is unknown. */
+  committedAt: string | null;
+  /** Unix seconds of the transition to Finalized (EpochFinalized, or a dismissed challenge); drives time-windowed queries. */
+  finalizedAt: bigint | null;
   challenger: Address | null;
   stake: bigint;
   pnl: bigint | null;
@@ -29,7 +32,8 @@ export interface StrategyView {
   bond: bigint;
   /** 0 active, 1 suspended. */
   status: number;
-  createdAt: bigint | null;
+  /** ISO 8601 registration time (block timestamp of StrategyRegistered); null when the block time is unknown. */
+  createdAt: string | null;
   epochs: Map<string, EpochView>;
   /** Derived from finalized epochs only. */
   derived: {
@@ -60,8 +64,16 @@ export interface DecodedEvent {
   eventName: string;
   args: Record<string, unknown>;
   blockNumber: bigint;
+  /** Hash of the block the log fired in; used by the transport's reorg check. */
+  blockHash?: `0x${string}`;
   /** Optional: filled by the transport when the block is known. */
   blockTimestamp?: bigint;
+}
+
+/** Block timestamp to ISO 8601; null stays null so unknown times stay unknown. */
+export function isoFromTimestamp(ts: bigint | null | undefined): string | null {
+  if (ts === null || ts === undefined) return null;
+  return new Date(Number(ts) * 1000).toISOString();
 }
 
 function requireStrategy(state: CovenantState, id: unknown): StrategyView {
@@ -75,8 +87,7 @@ function requireStrategy(state: CovenantState, id: unknown): StrategyView {
     bond: 0n,
     status: 0,
     createdAt: null,
-    epochs: new Map(),
-    derived: {
+    epochs: new Map(),    derived: {
       equity: 0n,
       cumulativePnl: 0n,
       finalizedEpochs: 0,
@@ -102,6 +113,7 @@ function epochOf(strategy: StrategyView, index: unknown): EpochView {
     evidenceUri: null,
     status: 0,
     committedAt: null,
+    finalizedAt: null,
     challenger: null,
     stake: 0n,
     pnl: null,
@@ -111,27 +123,27 @@ function epochOf(strategy: StrategyView, index: unknown): EpochView {
 }
 
 /**
- * Recomputes the derived view from finalized epochs. O(epochs); called per
- * relevant event. Total-return convention: pnl_0 includes the initial flow
- * because epoch 0's netFlow is the seed capital (see docs/protocol.md,
- * section 3.4 PnL accounting).
+ * Computes the derived view from finalized epochs. Pure; shared by the reducer
+ * and by invariantsHold so the two can never drift apart. Total-return
+ * convention: pnl_0 includes the initial flow because epoch 0's netFlow is the
+ * seed capital (see docs/protocol.md, section 3.4 PnL accounting).
  */
-function rederive(strategy: StrategyView): void {
-  const d = strategy.derived;
-  d.equity = 0n;
-  d.cumulativePnl = 0n;
-  d.finalizedEpochs = 0;
-  d.pendingEpochs = 0;
-  d.challengedEpochs = 0;
-  d.invalidatedEpochs = 0;
-  d.returnWad = null;
+export function computeDerived(epochs: Iterable<EpochView>): StrategyView["derived"] {
+  const d = {
+    equity: 0n,
+    cumulativePnl: 0n,
+    finalizedEpochs: 0,
+    pendingEpochs: 0,
+    challengedEpochs: 0,
+    invalidatedEpochs: 0,
+    returnWad: null as bigint | null,
+  };
 
-  const epochs = [...strategy.epochs.values()].sort(
+  const sorted = [...epochs].sort(
     (a, b) => (a.epochIndex < b.epochIndex ? -1 : a.epochIndex > b.epochIndex ? 1 : 0),
   );
   let firstEquity: bigint | null = null;
-  let lastEquity: bigint | null = null;
-  for (const e of epochs) {
+  for (const e of sorted) {
     if (e.status === 0) d.pendingEpochs += 1;
     else if (e.status === 2) d.challengedEpochs += 1;
     else if (e.status === 3) d.invalidatedEpochs += 1;
@@ -140,7 +152,6 @@ function rederive(strategy: StrategyView): void {
       d.equity = e.equity ?? 0n;
       d.cumulativePnl += e.pnl ?? 0n;
       if (firstEquity === null) firstEquity = e.equity ?? 0n;
-      lastEquity = e.equity ?? 0n;
     }
   }
   // Headline return: cumulative PnL over the first finalized equity, in 1e18
@@ -150,6 +161,12 @@ function rederive(strategy: StrategyView): void {
     const base = firstEquity < 0n ? -firstEquity : firstEquity;
     d.returnWad = (d.cumulativePnl * 10n ** 18n) / base;
   }
+  return d;
+}
+
+/** Recomputes and stores the derived view (used after reload from persistence). */
+export function recomputeDerived(strategy: StrategyView): void {
+  strategy.derived = computeDerived(strategy.epochs.values());
 }
 
 /** Applies one decoded event, mutating and returning the state (chainable). */
@@ -162,7 +179,7 @@ export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantS
       strategy.name = args.name as string;
       strategy.bond = args.bond as bigint;
       strategy.status = 0;
-      strategy.createdAt = event.blockTimestamp ?? null;
+      strategy.createdAt = isoFromTimestamp(event.blockTimestamp);
       break;
     }
     case "EpochCommitted": {
@@ -173,7 +190,8 @@ export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantS
       epoch.tradesRoot = args.trades_root as string;
       epoch.evidenceUri = args.evidence_uri as string;
       epoch.status = 0;
-      epoch.committedAt = event.blockTimestamp ?? null;
+      epoch.committedAt = isoFromTimestamp(event.blockTimestamp);
+      epoch.finalizedAt = null;
       epoch.challenger = null;
       epoch.stake = 0n;
       epoch.pnl = null;
@@ -185,6 +203,7 @@ export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantS
       epoch.status = 1;
       epoch.pnl = args.pnl as bigint;
       epoch.equity = args.equity as bigint;
+      if (event.blockTimestamp !== undefined) epoch.finalizedAt = event.blockTimestamp;
       break;
     }
     case "EpochChallenged": {
@@ -200,7 +219,10 @@ export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantS
       if (args.upheld === true) {
         epoch.status = 3;
       } else {
+        // Dismissed (or forced past the resolver deadline): the checkpoint
+        // finalizes at resolution time, which is when its PnL becomes real.
         epoch.status = 1;
+        if (event.blockTimestamp !== undefined) epoch.finalizedAt = event.blockTimestamp;
       }
       epoch.challenger = null;
       epoch.stake = 0n;
@@ -216,23 +238,40 @@ export function applyEvent(state: CovenantState, event: DecodedEvent): CovenantS
       break;
   }
   if (event.args.strategy_id !== undefined) {
-    rederive(requireStrategy(state, event.args.strategy_id));
+    recomputeDerived(requireStrategy(state, event.args.strategy_id));
   }
   state.lastBlock = event.blockNumber > state.lastBlock ? event.blockNumber : state.lastBlock;
   return state;
 }
 
 /**
- * Verifies that applying `events` in order is consistent with the reducer's
- * invariants. Used by the transport before committing a backfill batch.
+ * Verifies real reducer invariants over the state: registered ownership,
+ * legal checkpoint/strategy statuses, finalized epochs carrying pnl, and
+ * derived counters that actually follow from the epoch list. Used by the
+ * transport before committing a backfill batch.
  */
 export function invariantsHold(state: CovenantState): boolean {
   for (const s of state.strategies.values()) {
     if (s.owner === ("0x0000000000000000000000000000000000000000" as Address) && s.name === "") {
       return false; // registered strategies must have an owner
     }
+    if (s.status !== 0 && s.status !== 1) return false;
     for (const e of s.epochs.values()) {
+      if (e.status < 0 || e.status > 3) return false; // statuses are legal
       if (e.status === 1 && e.pnl === null) return false; // finalized must carry pnl
+    }
+    const fresh = computeDerived(s.epochs.values());
+    const d = s.derived;
+    if (
+      d.equity !== fresh.equity ||
+      d.cumulativePnl !== fresh.cumulativePnl ||
+      d.finalizedEpochs !== fresh.finalizedEpochs ||
+      d.pendingEpochs !== fresh.pendingEpochs ||
+      d.challengedEpochs !== fresh.challengedEpochs ||
+      d.invalidatedEpochs !== fresh.invalidatedEpochs ||
+      d.returnWad !== fresh.returnWad
+    ) {
+      return false; // derived view must follow from the epochs it summarizes
     }
   }
   return true;

@@ -9,10 +9,14 @@ export interface LeaderboardRow {
   owner: string;
   name: string;
   status: number;
+  /** USDG base units (integer string, 6 decimals). */
   bond: string;
   derived: {
+    /** USDG base units; "0" before the first finalized checkpoint. */
     equity: string;
+    /** USDG base units. */
     cumulativePnl: string;
+    /** 1e18 fixed point return, null without finalized history. */
     returnWad: string | null;
     finalizedEpochs: number;
     pendingEpochs: number;
@@ -27,17 +31,24 @@ export interface LeaderboardRow {
    * so the UI never charts a single point.
    */
   spark: (number | null)[] | null;
+  /** Return over the requested /strategies window (1e18 wad); null sorts last. */
+  windowReturnWad?: string | null;
 }
 
 export interface EpochRow {
   epochIndex: string;
+  /** USDG base units, or null before the epoch carries a value. */
   equity: string | null;
   netFlow: string | null;
   tradesRoot: string | null;
   evidenceUri: string | null;
   status: number;
+  /** ISO 8601 commit time, null when the block timestamp is unknown. */
   committedAt: string | null;
   pnl: string | null;
+  challenger?: string | null;
+  /** USDG base units. */
+  stake?: string | null;
 }
 
 export interface StrategyDetail extends LeaderboardRow {
@@ -75,16 +86,20 @@ export async function fetchStrategy(id: string): Promise<StrategyDetail> {
   return (await res.json()) as StrategyDetail;
 }
 
-/** USDG has 6 decimals on every chain it deploys to. */
+/**
+ * USDG base-unit integer string (6 decimals on every chain) to a human
+ * string. Pure string math, so typical magnitudes never hit float drift;
+ * legacy decimal strings are tolerated by truncating at the point.
+ */
 export function formatUsdg(baseUnits: string | null): string {
   if (baseUnits === null) return "-";
   const neg = baseUnits.startsWith("-");
-  const raw = neg ? baseUnits.slice(1) : baseUnits;
-  const [whole, frac = ""] = raw.split(".");
-  const padded = frac.padEnd(6, "0").slice(0, 6);
-  const trimmed = padded.replace(/0+$/, "");
-  const body = `${whole}.${trimmed || "00"}`;
-  return `${neg ? "-" : ""}${body}`;
+  const raw = (neg ? baseUnits.slice(1) : baseUnits).split(".")[0] ?? "0";
+  if (!/^\d+$/.test(raw)) return "-";
+  const padded = raw.padStart(7, "0"); // at least 0.000001
+  const whole = padded.slice(0, -6);
+  const frac = padded.slice(-6).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${whole}.${frac.length >= 2 ? frac : frac.padEnd(2, "0")}`;
 }
 
 /** 1e18 fixed point return to a percentage string. */

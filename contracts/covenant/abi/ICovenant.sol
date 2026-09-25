@@ -17,6 +17,12 @@ interface ICovenant {
 
     function withdrawTreasury(address to, uint256 amount) external;
 
+    function transferAdmin(address new_admin) external;
+
+    function acceptAdmin() external;
+
+    function pendingAdmin() external view returns (address);
+
     function registerStrategy(string calldata name, string calldata metadata_uri) external returns (uint256);
 
     function commitEpoch(uint256 strategy_id, uint64 epoch_index, int256 equity, int256 net_flow, bytes32 trades_root, string calldata evidence_uri) external;
@@ -41,6 +47,8 @@ interface ICovenant {
 
     error NotAdmin();
 
+    error NotPendingAdmin();
+
     error NotResolver();
 
     error NotStrategyOwner();
@@ -53,9 +61,13 @@ interface ICovenant {
 
     error EpochNotSequential();
 
+    error PreviousEpochNotFinalized();
+
     error EpochUnknown();
 
     error EpochNotPending();
+
+    error NotChallenged();
 
     error ChallengeWindowElapsed();
 
@@ -66,6 +78,8 @@ interface ICovenant {
     error ZeroAddress();
 
     error ZeroAmount();
+
+    error TreasuryOverdraw();
 
     error TokenTransferFailed();
 }

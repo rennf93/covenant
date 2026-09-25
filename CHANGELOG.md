@@ -5,6 +5,89 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Hardening (contracts/covenant)
+
+- **Fixed (critical):** `finalizeEpoch` accepted phantom epochs. An
+  uncommitted epoch read zero-initialized storage as `Pending` with
+  `committed_at = 0`, so anyone could "finalize" a nonexistent epoch and
+  apply `pnl = 0 - equity`, zeroing the strategy. `finalizeEpoch` and
+  `challengeEpoch` now verify existence explicitly (`StrategyNotFound` /
+  `EpochUnknown`); a challenge of a phantom epoch inside the first window
+  was also possible before and is now rejected.
+- **Fixed:** sequential accountability. `commitEpoch` now requires the
+  previous checkpoint to be `Finalized` (`PreviousEpochNotFinalized`
+  otherwise, epoch 0 exempt), and `finalizeEpoch` enforces the same order as
+  defense in depth. Consequence, documented in `docs/protocol.md`: a pending
+  or challenged epoch blocks later commits until it resolves, so disputed
+  epochs can no longer be buried under newer ones.
+- **Added:** resolver deadline (anti-deadlock). Once
+  `now >= committed_at + 4 * challenge_window`, resolution becomes
+  permissionless and forced-dismiss: the stake is refunded to the challenger,
+  the checkpoint finalizes, nothing goes to the treasury, and the
+  `ChallengeResolved` event carries a new `forced = true` field. The
+  resolver keeps full authority at any time.
+- **Added:** two-step admin transfer (`transferAdmin` / `acceptAdmin`, plus
+  a `pendingAdmin()` view; proposing the zero address cancels). Every admin
+  action now emits an event (`Paused`, `Unpaused`, `ResolverSet`,
+  `ParametersSet`, `TreasuryWithdrawn`, `AdminTransferProposed`,
+  `AdminTransferAccepted`).
+- **Changed:** pause now gates `challengeEpoch` and `resolveChallenge` (in
+  addition to registration). `finalizeEpoch` is deliberately pause-exempt
+  and stays permissionless: it only settles accounting after the window and
+  moves no tokens.
+- **Changed:** checks-effects-interactions ordering in `registerStrategy`
+  and `challengeEpoch` (state effects now precede the USDG transfer,
+  matching `resolveChallenge`).
+- **Changed (error hygiene):** `withdrawTreasury` overdraw gets its own
+  `TreasuryOverdraw` error; resolving a non-challenged checkpoint gets
+  `NotChallenged` instead of reusing `AlreadyChallenged`; wrong `acceptAdmin`
+  caller gets `NotPendingAdmin`.
+- Tests: 28 contract unit tests (was 11), covering the phantom-epoch and
+  out-of-order regressions, double challenge, non-resolver resolve, unknown
+  strategy/epoch, paused challenge/resolve, pause-exempt finalize, treasury
+  happy/overdraw paths, parameter scoping, the admin handover flow, and all
+  resolver-deadline paths. A stale test comment claiming out-of-order
+  finalize was impossible is corrected.
+
+### Added (contracts/merkle-core)
+
+- Fixed-seed proptest suite (`tests/properties.rs`) over random tree sizes
+  1..=64: root recomputation is deterministic, every proof verifies, proofs
+  are exactly `ceil(log2(n))` siblings, and foreign leaves fail. The RNG
+  seed is fixed so CI runs are reproducible.
+
+### Added (docs)
+
+- `docs/gas-notes.md`: an analytical gas breakdown (storage slots per
+  operation, loop bounds, one-time vs per-call costs). The stylus-test mock
+  VM does not meter gas (its metering host functions never charge), so all
+  numbers there are analytical, explicitly not measured.
+
+### Changed (ABI)
+
+- Regenerated `contracts/covenant/abi/ICovenant.sol` via
+  `cargo stylus export-abi` and mirrored exactly into `sdk/src/abi.ts`.
+  Surface delta: new functions `transferAdmin(address)`, `acceptAdmin()`,
+  `pendingAdmin() view returns (address)`; `ChallengeResolved` gains a
+  non-indexed `forced` bool (event signature changed); new errors
+  `NotPendingAdmin`, `PreviousEpochNotFinalized`, `NotChallenged`,
+  `TreasuryOverdraw`. New events `Paused`, `Unpaused`, `ResolverSet`,
+  `ParametersSet`, `TreasuryWithdrawn`, `AdminTransferProposed`,
+  `AdminTransferAccepted`; `sdk/src/abi.ts` now also carries the error
+  entries. Consumers decoding `ChallengeResolved` (indexer) must be updated
+  for the new field.
+
+### Changed (CI)
+
+- Contract job: `cargo fmt --check` and `cargo clippy --all-targets -- -D
+  warnings` on both crates, an ABI-sync step (re-export and diff against the
+  committed `abi/ICovenant.sol`), and a Merkle fixture freshness check in
+  the TS job (regenerate via `sdk/scripts/gen-fixtures.ts`, diff against the
+  committed fixtures). Makefile gains a `contract-lint` target wired into
+  `check`.
+
 ## [0.1.0] - 2026-09-25
 
 First complete build: the protocol, the stack, the flagship agent, and the

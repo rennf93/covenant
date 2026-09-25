@@ -43,6 +43,21 @@ export const covenantAbi = [
   },
   {
     type: "function",
+    name: "transferAdmin",
+    inputs: [{ name: "new_admin", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  { type: "function", name: "acceptAdmin", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  {
+    type: "function",
+    name: "pendingAdmin",
+    inputs: [],
+    outputs: [{ type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "registerStrategy",
     inputs: [
       { name: "name", type: "string" },
@@ -221,6 +236,7 @@ export const covenantAbi = [
       { name: "strategy_id", type: "uint256", indexed: true },
       { name: "epoch_index", type: "uint64", indexed: true },
       { name: "upheld", type: "bool", indexed: false },
+      { name: "forced", type: "bool", indexed: false },
       { name: "resolver", type: "address", indexed: true },
     ],
   },
@@ -232,6 +248,74 @@ export const covenantAbi = [
       { name: "status", type: "uint8", indexed: false },
     ],
   },
+  {
+    type: "event",
+    name: "Paused",
+    inputs: [{ name: "account", type: "address", indexed: true }],
+  },
+  {
+    type: "event",
+    name: "Unpaused",
+    inputs: [{ name: "account", type: "address", indexed: true }],
+  },
+  {
+    type: "event",
+    name: "ResolverSet",
+    inputs: [
+      { name: "old_resolver", type: "address", indexed: true },
+      { name: "new_resolver", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "ParametersSet",
+    inputs: [
+      { name: "bond_amount", type: "uint256", indexed: false },
+      { name: "challenge_stake", type: "uint256", indexed: false },
+      { name: "challenge_window", type: "uint64", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "TreasuryWithdrawn",
+    inputs: [
+      { name: "to", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "AdminTransferProposed",
+    inputs: [
+      { name: "current_admin", type: "address", indexed: true },
+      { name: "new_admin", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "AdminTransferAccepted",
+    inputs: [{ name: "new_admin", type: "address", indexed: true }],
+  },
+  // Errors, in ICovenant.sol order (decodable revert data).
+  { type: "error", name: "NotAdmin", inputs: [] },
+  { type: "error", name: "NotPendingAdmin", inputs: [] },
+  { type: "error", name: "NotResolver", inputs: [] },
+  { type: "error", name: "NotStrategyOwner", inputs: [] },
+  { type: "error", name: "ContractPaused", inputs: [] },
+  { type: "error", name: "StrategyNotFound", inputs: [] },
+  { type: "error", name: "StrategySuspended", inputs: [] },
+  { type: "error", name: "EpochNotSequential", inputs: [] },
+  { type: "error", name: "PreviousEpochNotFinalized", inputs: [] },
+  { type: "error", name: "EpochUnknown", inputs: [] },
+  { type: "error", name: "EpochNotPending", inputs: [] },
+  { type: "error", name: "NotChallenged", inputs: [] },
+  { type: "error", name: "ChallengeWindowElapsed", inputs: [] },
+  { type: "error", name: "ChallengeWindowActive", inputs: [] },
+  { type: "error", name: "AlreadyChallenged", inputs: [] },
+  { type: "error", name: "ZeroAddress", inputs: [] },
+  { type: "error", name: "ZeroAmount", inputs: [] },
+  { type: "error", name: "TreasuryOverdraw", inputs: [] },
+  { type: "error", name: "TokenTransferFailed", inputs: [] },
 ] as const satisfies Abi;
 
 export type CovenantAbi = typeof covenantAbi;

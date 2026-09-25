@@ -13,8 +13,13 @@ const CHALLENGER = "0x0000000000000000000000000000000000000004" as Address;
  * decoding against the ABI is covered by the transport's decodeLog, exercised
  * end-to-end at deploy time.
  */
-function emit(name: string, args: Record<string, unknown>, blockNumber = 1n): DecodedEvent {
-  return { eventName: name, args, blockNumber };
+function emit(
+  name: string,
+  args: Record<string, unknown>,
+  blockNumber = 1n,
+  blockTimestamp?: bigint,
+): DecodedEvent {
+  return { eventName: name, args, blockNumber, blockTimestamp };
 }
 
 function makeState(): CovenantState {
@@ -101,4 +106,75 @@ test("StrategyStatusChanged suspends and reactivates a strategy", () => {
   assert.equal(state.strategies.get("1")!.status, 1n);
   state = applyEvent(state, emit("StrategyStatusChanged", { strategy_id: 1n, status: 0n }, 7n));
   assert.equal(state.strategies.get("1")!.status, 0n);
+});
+
+test("block timestamps become ISO strings through the reducer", () => {
+  let state = makeState();
+  state = applyEvent(
+    state,
+    emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "j", bond: 1000n }, 5n, 5_000n),
+  );
+  state = applyEvent(
+    state,
+    emit("EpochCommitted", { strategy_id: 1n, epoch_index: 0n, equity: 1000n, net_flow: 1000n, trades_root: keccak256(toHex("r0")), evidence_uri: "" }, 6n, 6_000n),
+  );
+  const s = state.strategies.get("1")!;
+  assert.equal(s.createdAt, new Date(5_000_000).toISOString());
+  assert.equal(s.epochs.get("0")!.committedAt, new Date(6_000_000).toISOString());
+  // no block timestamp -> null, never a fabricated epoch
+  state = applyEvent(state, emit("EpochCommitted", { strategy_id: 1n, epoch_index: 1n, equity: 1n, net_flow: 0n, trades_root: keccak256(toHex("r")), evidence_uri: "" }));
+  assert.equal(state.strategies.get("1")!.epochs.get("1")!.committedAt, null);
+});
+
+test("finalizedAt lands at finalize time and at dismissal time", () => {
+  let state = makeState();
+  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "j", bond: 1000n }));
+  state = applyEvent(state, emit("EpochCommitted", { strategy_id: 1n, epoch_index: 0n, equity: 1000n, net_flow: 1000n, trades_root: keccak256(toHex("r0")), evidence_uri: "" }, 6n, 6_000n));
+  state = applyEvent(state, emit("EpochFinalized", { strategy_id: 1n, epoch_index: 0n, pnl: 0n, equity: 1000n }, 9n, 9_000n));
+  assert.equal(state.strategies.get("1")!.epochs.get("0")!.finalizedAt, 9_000n);
+
+  // challenged, then dismissed: the epoch finalizes AT RESOLUTION time
+  state = applyEvent(state, emit("EpochChallenged", { strategy_id: 1n, epoch_index: 0n, challenger: CHALLENGER, reason: "x" }, 10n));
+  state = applyEvent(state, emit("ChallengeResolved", { strategy_id: 1n, epoch_index: 0n, upheld: false, resolver: OPERATOR }, 14n, 14_000n));
+  assert.equal(state.strategies.get("1")!.epochs.get("0")!.finalizedAt, 14_000n);
+
+  // upheld instead: invalidated epochs keep the stale finalize time
+  state = applyEvent(state, emit("EpochChallenged", { strategy_id: 1n, epoch_index: 0n, challenger: CHALLENGER, reason: "y" }, 15n));
+  state = applyEvent(state, emit("ChallengeResolved", { strategy_id: 1n, epoch_index: 0n, upheld: true, resolver: OPERATOR }, 18n));
+  const invalidated = state.strategies.get("1")!.epochs.get("0")!;
+  assert.equal(invalidated.status, 3);
+  assert.equal(invalidated.finalizedAt, 14_000n);
+});
+
+test("invariants reject illegal statuses and drifted derived views", () => {
+  let state = makeState();
+  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "j", bond: 1000n }));
+  state = applyEvent(state, emit("EpochCommitted", { strategy_id: 1n, epoch_index: 0n, equity: 1000n, net_flow: 1000n, trades_root: keccak256(toHex("r0")), evidence_uri: "" }));
+  state = applyEvent(state, emit("EpochFinalized", { strategy_id: 1n, epoch_index: 0n, pnl: 100n, equity: 1100n }));
+  assert.ok(invariantsHold(state));
+
+  const live = state.strategies.get("1")!;
+  assert.equal(live.derived.finalizedEpochs, 1);
+  // an out-of-range checkpoint status is illegal
+  const illegal = structuredClone(state);
+  illegal.strategies.get("1")!.epochs.get("0")!.status = 9;
+  assert.equal(invariantsHold(illegal), false);
+
+  // a finalized epoch without pnl is illegal
+  const pnlLess = structuredClone(state);
+  pnlLess.strategies.get("1")!.epochs.get("0")!.pnl = null;
+  assert.equal(invariantsHold(pnlLess), false);
+
+  // derived counters must follow from the epochs they summarize
+  const drifted = structuredClone(state);
+  drifted.strategies.get("1")!.derived.cumulativePnl = 999n;
+  assert.equal(invariantsHold(drifted), false);
+  const driftedReturn = structuredClone(state);
+  driftedReturn.strategies.get("1")!.derived.returnWad = 1n;
+  assert.equal(invariantsHold(driftedReturn), false);
+
+  // an out-of-range strategy status is illegal too
+  const suspended = structuredClone(state);
+  suspended.strategies.get("1")!.status = 7;
+  assert.equal(invariantsHold(suspended), false);
 });

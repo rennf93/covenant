@@ -36,8 +36,13 @@ function statusLabel(status: number): string {
   return "invalidated";
 }
 
-function usd(v: number): string {
-  return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Formats a base-unit (1e6) USDG number for display; the chart's y math is
+    scale-relative, so only this presentation helper needs the conversion. */
+function usd(baseUnits: number): string {
+  return (baseUnits / 1e6).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export default function EquityChart({ points }: { points: ChartPoint[] }) {

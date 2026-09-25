@@ -152,22 +152,34 @@ style) Merkle tree with these normative properties:
 
 - A commit MUST be sent by the strategy owner, while the strategy is active
   and the contract is unpaused. (evidence:
-  `contracts/covenant/src/lib.rs::commit_epoch`)
+  `contracts/covenant/src/epochs.rs::commit`)
 - `epochIndex` MUST equal the strategy's current epoch count: epochs are
   strictly sequential, first epoch 0, no gaps, no re-commits. (evidence:
-  `contracts/covenant/src/lib.rs::commit_epoch`
+  `contracts/covenant/src/epochs.rs::commit`
   (`epoch_index != epoch_count` -> `EpochNotSequential`),
   `contracts/covenant/src/test.rs::commit_epoch_requires_owner_and_sequential_epochs`)
+- **Sequential accountability.** The previous checkpoint (`epochIndex - 1`)
+  MUST have status `Finalized` before a later epoch may commit (epoch 0 is
+  exempt). A Pending or Challenged checkpoint therefore blocks all later
+  commits until it is finalized or resolved. This is deliberate: per-epoch
+  PnL telescopes across finalized checkpoints, so a disputed epoch MUST NOT
+  be buried under newer, undisputed ones. The cost is honest and documented:
+  an unresolved challenge stalls the strategy's later epochs until resolution
+  or the resolver deadline (3.6) releases it. (evidence:
+  `contracts/covenant/src/epochs.rs::commit`
+  (`prev_status != CP_FINALIZED` -> `PreviousEpochNotFinalized`),
+  `contracts/covenant/src/test.rs::commit_blocks_until_previous_epoch_finalizes`,
+  `contracts/covenant/src/test.rs::challenged_epoch_blocks_commits_until_resolved`)
 - `committed_at` MUST be strictly increasing: a commit whose block timestamp
   is not greater than the previous epoch's `committed_at` reverts. (evidence:
-  `contracts/covenant/src/lib.rs::commit_epoch`
+  `contracts/covenant/src/epochs.rs::commit`
   (`prev_committed_at >= now` -> `EpochNotSequential`))
 - `equityUsdg` and `netFlowUsdg` are `int256` USDG base units (6 decimals);
   equity MAY be negative. They are operator-reported and subject to
   challenge. `tradesRoot` is the sorted-pair Merkle root over the epoch's
   canonical receipt hashes; `evidenceURI` points at the offchain evidence
   bundle. (evidence: `sdk/src/epoch.ts::commitPayload`,
-  `contracts/covenant/src/lib.rs::commit_epoch`)
+  `contracts/covenant/src/epochs.rs::commit`)
 - Builders MUST refuse to produce a commit payload for an epoch with zero
   receipts. (evidence: `sdk/src/epoch.ts::EpochBuilder::commitPayload`,
   `vouch/vouch/attest/commit.py::commit_epoch`)
@@ -200,11 +212,33 @@ truncated while a corrupt mid-file line is a hard error. (evidence:
 - Any account MAY challenge a pending checkpoint during the window (block
   timestamp `< committed_at + challenge_window`) by staking `challenge_stake`
   USDG. Only one challenger at a time; a challenged checkpoint is `Challenged`
-  (status 2). (evidence: `contracts/covenant/src/lib.rs::challenge_epoch`)
+  (status 2), and a second challenge attempt while one is open reverts with
+  `EpochNotPending`. (evidence: `contracts/covenant/src/challenge.rs::challenge`,
+  `contracts/covenant/src/test.rs::double_challenge_while_challenged_reverts`)
+- Challenges MUST reference existing state: an unknown strategy reverts with
+  `StrategyNotFound` and an index at or past the strategy's `epoch_count`
+  reverts with `EpochUnknown`. (Zero-initialized mapping storage reads as a
+  Pending checkpoint at time 0, which is why the existence check is explicit
+  rather than implied by the status check.) (evidence:
+  `contracts/covenant/src/challenge.rs::challenge`,
+  `contracts/covenant/src/test.rs::challenge_unknown_epoch_or_strategy_reverts`)
 - Any account MAY finalize a pending checkpoint once the window has elapsed
   (permissionless). Finalizing applies the performance accounting and sets
-  status `Finalized` (1). (evidence:
-  `contracts/covenant/src/lib.rs::finalize_epoch`)
+  status `Finalized` (1). Finalize is NOT gated by the pause: it settles
+  accounting only, moves no tokens, and cannot help an attacker, so pausing
+  it would gain nothing and could strand performance accounting. Epochs
+  finalize strictly in order (`PreviousEpochNotFinalized` otherwise;
+  enforced on finalize as defense in depth even though commit refuses to
+  create the out-of-order state). (evidence:
+  `contracts/covenant/src/epochs.rs::finalize`,
+  `contracts/covenant/src/test.rs::finalize_is_not_gated_by_pause`,
+  `contracts/covenant/src/test.rs::finalize_enforces_sequential_order`)
+- Finalize MUST reject unknown targets the same way challenge does
+  (`StrategyNotFound` / `EpochUnknown`); a phantom epoch used to read
+  zero-initialized storage as Pending and could be "finalized" by anyone,
+  zeroing the strategy's equity. (evidence:
+  `contracts/covenant/src/epochs.rs::finalize`,
+  `contracts/covenant/src/test.rs::finalize_unknown_epoch_or_strategy_reverts`)
 
 ### 3.4 PnL accounting
 
@@ -212,11 +246,11 @@ truncated while a corrupt mid-file line is a hard error. (evidence:
   the previous equity is 0, so `pnl_0 = equity_0 - netFlow_0`; with epoch 0's
   `netFlow` carrying the seed capital, cumulative PnL telescopes to final
   equity minus total deposits. (evidence:
-  `contracts/covenant/src/lib.rs::finalize_epoch` (`let pnl = ...`),
+  `contracts/covenant/src/epochs.rs::finalize` (`let pnl = ...`),
   `vouch/README.md` (epoch accounting section))
 - The contract tracks cumulative PnL, the high-water mark (updated when
   ending equity exceeds the stored HWM), and the finalized epoch count.
-  (evidence: `contracts/covenant/src/lib.rs::finalize_epoch`,
+  (evidence: `contracts/covenant/src/epochs.rs::finalize`,
   `contracts/covenant/src/test.rs::finalize_applies_performance_accounting`)
 - The indexer derives leaderboard figures from FINALIZED epochs only, and
   computes its headline return as cumulative PnL over the first finalized
@@ -232,24 +266,95 @@ epoch:
   `Suspended`, the challenger's stake is refunded, and the operator's
   registration bond is slashed (transferred to the challenger). An upheld
   challenge ends the strategy. (evidence:
-  `contracts/covenant/src/lib.rs::resolve_challenge`,
+  `contracts/covenant/src/challenge.rs::resolve`,
   `contracts/covenant/src/test.rs::challenge_and_upheld_resolution_slashes_operator`)
 - **Dismissed:** the checkpoint becomes `Finalized` (1), the challenger's
   stake is forfeited to the contract's treasury (tracked, withdrawable by
-  admin). (evidence: `contracts/covenant/src/lib.rs::resolve_challenge`,
+  admin). (evidence: `contracts/covenant/src/challenge.rs::resolve`,
   `contracts/covenant/src/test.rs::dismissed_challenge_forfeits_stake_and_finalizes_epoch`)
+- Resolving a checkpoint that is not `Challenged` reverts with
+  `NotChallenged` (a separate error, not a reuse of the challenge-side
+  status error). (evidence: `contracts/covenant/src/challenge.rs::resolve`,
+  `contracts/covenant/src/test.rs::resolve_on_non_challenged_epoch_reverts`)
 
 Lifecycle statuses: checkpoint `0` Pending, `1` Finalized, `2` Challenged,
 `3` Invalidated; strategy `0` Active, `1` Suspended. (evidence:
-`contracts/covenant/src/lib.rs` (STATUS_*/CP_* constants),
+`contracts/covenant/src/types.rs` (STATUS_*/CP_* constants),
 `sdk/src/client.ts::CheckpointStatus`)
 
-### 3.6 Onchain receipt verification
+### 3.6 Resolver deadline (anti-deadlock)
+
+An epoch can only be challenged within one `challenge_window` of its commit,
+so once `now >= committed_at + 4 * challenge_window` an open challenge is at
+least three windows old. From that deadline on:
+
+- resolution becomes PERMISSIONLESS: any account MAY call
+  `resolveChallenge`;
+- the decision is FORCED-DISMISS regardless of the `upheld` argument: the
+  checkpoint becomes `Finalized` (1), the challenger's stake is refunded in
+  full, and nothing is credited to the treasury (nobody actually judged the
+  challenge spurious, so nobody is punished);
+- the emitted `ChallengeResolved` event carries `forced = true` (`resolver`
+  is the account that triggered the forced resolution, not a protocol
+  resolver);
+- the resolver's own authority does NOT expire: the resolver MAY resolve at
+  any time, before or after the deadline, with the full upheld/dismiss
+  choice.
+
+Implementation notes: the deadline is derived from `committed_at` and the
+`challenge_window` parameter as it stands at resolve time (no challenge
+timestamp is stored; a parameter change therefore moves open deadlines).
+Pause gates the forced path too (see 3.7), so pausing can delay but the
+admin cannot secretly divert a forced refund: forced dismissals never touch
+the treasury.
+
+(evidence: `contracts/covenant/src/challenge.rs::resolve`,
+`contracts/covenant/src/test.rs::permissionless_resolve_before_deadline_reverts`,
+`contracts/covenant/src/test.rs::forced_dismiss_after_deadline_refunds_stake`,
+`contracts/covenant/src/test.rs::forced_resolution_ignores_the_upheld_argument`,
+`contracts/covenant/src/test.rs::resolver_still_resolves_past_deadline_without_forcing`)
+
+### 3.7 Administration, pause, and errors
+
+- **Admin model:** the deployer is the initial admin. Admin handover is
+  two-step: `transferAdmin(new)` (current admin only) stores the proposal,
+  and `acceptAdmin()` (proposed successor only) completes it. Proposing the
+  zero address cancels a pending proposal, so an uncontrolled account can
+  never be handed the role by accident. The current admin keeps full
+  authority until acceptance. (evidence:
+  `contracts/covenant/src/admin.rs::transfer_admin`,
+  `contracts/covenant/src/admin.rs::accept_admin`,
+  `contracts/covenant/src/test.rs::admin_transfer_requires_two_steps`,
+  `contracts/covenant/src/test.rs::admin_transfer_proposal_can_be_cancelled_with_zero_address`)
+- **Events:** every state-changing admin action emits an event: `Paused`,
+  `Unpaused`, `ResolverSet`, `ParametersSet`, `TreasuryWithdrawn`,
+  `AdminTransferProposed`, `AdminTransferAccepted`. (evidence:
+  `contracts/covenant/src/admin.rs`, `contracts/covenant/src/types.rs`)
+- **Pause coverage:** pause gates `registerStrategy`, `commitEpoch`,
+  `challengeEpoch`, and `resolveChallenge` (including the forced
+  permissionless path). `finalizeEpoch` is deliberately pause-exempt (3.3):
+  it only settles accounting after the window and moves no tokens. (evidence:
+  `contracts/covenant/src/epochs.rs::commit`,
+  `contracts/covenant/src/challenge.rs::challenge`,
+  `contracts/covenant/src/challenge.rs::resolve`,
+  `contracts/covenant/src/test.rs::paused_contract_rejects_challenge_and_resolve`)
+- **Parameters:** `setParameters` applies to future activity only; bonds and
+  stakes already escrowed are untouched, and a checkpoint's resolver
+  deadline uses the window parameter in force at resolve time. (evidence:
+  `contracts/covenant/src/admin.rs::set_parameters`,
+  `contracts/covenant/src/test.rs::set_parameters_applies_only_to_new_activity`)
+- **Errors:** withdrawal beyond the tracked treasury reverts with
+  `TreasuryOverdraw` (not a generic zero-amount error); accepting a transfer
+  without being the proposed successor reverts with `NotPendingAdmin`.
+  (evidence: `contracts/covenant/src/admin.rs::withdraw_treasury`,
+  `contracts/covenant/src/types.rs`)
+
+### 3.8 Onchain receipt verification
 
 `verifyReceipt(strategyId, epochIndex, proof, receiptHash)` is a pure view:
 it MUST return false for unknown epochs and for zero roots (empty epochs),
 and otherwise verify the proof against the committed root. (evidence:
-`contracts/covenant/src/lib.rs::verify_receipt`,
+`contracts/covenant/src/verify.rs::verify_receipt`,
 `contracts/covenant/src/test.rs::verify_receipt_checks_merkle_proofs`)
 
 ## 4. Cross-language conformance rule
@@ -291,8 +396,8 @@ as of 2026-09-25:
 
 | Suite | Command | Count | Enforces |
 | --- | --- | --- | --- |
-| Contract unit tests (mock VM) | `cd contracts/covenant && cargo test` | 11/11 | Section 3: sequential commits, strict timestamps, permissionless finalize + accounting, challenge economics, window expiry rejection, proof verification, event topics, admin guards |
-| merkle-core (incl. cross-language fixture suite) | `cd contracts/merkle-core && cargo test` | 6/6 | Sections 2 and 4: Rust Merkle primitives against TS-generated vectors, single-leaf identity, empty-input refusal, sorted-pair commutativity |
+| Contract unit tests (mock VM) | `cd contracts/covenant && cargo test` | 28/28 | Section 3: sequential commits AND ordered finalization, strict timestamps, permissionless pause-exempt finalize + accounting, phantom-epoch rejections, resolver deadline (forced dismiss, refund, event flag), challenge economics, window expiry rejection, pause coverage, two-step admin handover, treasury overdraw, proof verification, event topics, admin guards |
+| merkle-core (incl. cross-language fixture suite and property tests) | `cd contracts/merkle-core && cargo test` | 9/9 | Sections 2 and 4: Rust Merkle primitives against TS-generated vectors, single-leaf identity, empty-input refusal, sorted-pair commutativity, plus fixed-seed property tests over random tree sizes 1..=64 (root recomputation, every proof, depth bound) |
 | SDK | `pnpm --filter @covenant/sdk test` | 8/8 | Sections 1 and 2: exact fixed point, sign enforcement, hash-of-string fields, tree/proof behavior incl. property tests, EpochBuilder invariants |
 | Indexer | `pnpm --filter @covenant/indexer test` | 5/5 | Section 3.4/leaderboard: event reducer behavior (status transitions, finalized-only derivation, invariants hold) |
 | vouch attestation | `cd vouch && python3 -m unittest discover -s tests` | 10/10 | Sections 1, 2, 4: Python keccak/receipt/merkle fixture vectors, validation refusals, ledger invariants and crash recovery, ledger-only commit, USDG conversion |

@@ -165,7 +165,7 @@ export default async function StrategyPage({
             <span>
               {deltas !== null
                 ? `${deltas.positive ? "+" : "-"}${formatUsdg(
-                    String(Math.abs(Math.round(deltas.usd * 1e6))),
+                    String(Math.abs(Math.round(deltas.usd))),
                   )} (${deltas.positive ? "+" : ""}${deltas.pct.toFixed(1)}%) since first checkpoint`
                 : "waiting for a second finalized checkpoint"}
             </span>
