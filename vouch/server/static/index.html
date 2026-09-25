@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #0a0a0b; --panel: #101012; --hover: #17171a;
-    --text: #e4e4e7; --text2: #a1a1aa; --muted: #71717a;
+    --text: #e4e4e7; --text2: #a1a1aa; --muted: #71717a; --faint: #52525b;
     --line: #232326; --line-input: #2e2e33;
     --up: #3fce8f; --down: #e5615c; --warn: #d4a72c;
     --up-dim: rgba(63, 206, 143, .4); --down-dim: rgba(229, 97, 92, .4); --warn-dim: rgba(212, 167, 44, .35);
@@ -17,14 +17,19 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 14px/1.5 var(--sans); }
+
   header { display: flex; align-items: center; gap: 12px; padding: 10px 20px;
            border-bottom: 1px solid var(--line); background: var(--panel); }
-  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  h1.wordmark { font: 600 13px var(--mono); letter-spacing: .3em; margin: 0;
+                color: var(--text); text-transform: uppercase; flex: none; }
+  h1.wordmark .wm-sub { font: 400 10.5px var(--mono); letter-spacing: .08em;
+                        text-transform: none; color: var(--muted); margin-left: 8px; }
   .live { color: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
   .spacer { flex: 1; }
 
   button { background: transparent; color: var(--text); border: 1px solid var(--line);
-           border-radius: 6px; padding: 6px 12px; cursor: pointer; font: 13px var(--sans); }
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; font: 13px var(--sans);
+           transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease; }
   button:hover { background: var(--hover); border-color: var(--line-input); }
   button:active { transform: scale(0.98); }
   button.primary { background: var(--up); border-color: var(--up); color: #06281a; font-weight: 600; }
@@ -35,7 +40,8 @@
 
   input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line-input);
                   border-radius: 6px; padding: 6px 9px; font: 12.5px var(--mono); width: 100%;
-                  font-variant-numeric: tabular-nums; }
+                  font-variant-numeric: tabular-nums;
+                  transition: border-color .15s ease, box-shadow .15s ease; }
   input:focus, select:focus { outline: none; border-color: var(--up-dim);
                               box-shadow: 0 0 0 2px rgba(63, 206, 143, .25); }
   input.err, select.err { border-color: var(--down); }
@@ -45,31 +51,61 @@
   label.check { display: flex; align-items: center; gap: 8px; text-transform: none;
                 letter-spacing: 0; font: 12px var(--sans); color: var(--text2);
                 margin: 10px 0 2px; cursor: pointer; }
+  label.grouplabel { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+                     color: var(--muted); }
 
-  main { display: grid; grid-template-columns: 300px 1fr; gap: 14px; padding: 14px 20px; max-width: 1500px; margin: 0 auto; }
+  main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px;
+         padding: 14px 20px; max-width: 1500px; margin: 0 auto;
+         grid-template-areas: "launch runs" "sessions runs" "sessions inspector"; }
+  .zone { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .z-launch { grid-area: launch; }
+  .z-sessions { grid-area: sessions; }
+  .z-runs { grid-area: runs; }
+  .z-inspector { grid-area: inspector; }
   .panel, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 0; padding: 14px; }
-  .card { margin-bottom: 14px; }
-  .stack > * + * { margin-top: 14px; }
+  .card { margin-bottom: 14px; overflow-x: auto; }
   .sec-h, .panel h2, .card h2 { display: flex; align-items: baseline; gap: 10px;
           font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .14em;
           color: var(--muted); border-bottom: 1px solid var(--line);
           padding-bottom: 6px; margin: 0 0 10px; }
   .sec-h .val { margin-left: auto; color: var(--text2); text-transform: none;
-                letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+                letter-spacing: .02em; font: 400 14px var(--mono);
+                font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none;
+         transition: background-color .15s ease; }
   .dot.on { background: var(--up); }
   .dot.err { background: var(--down); }
+  @keyframes livepulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  .dot.pulse { animation: livepulse 2s ease-in-out infinite; }
+
   .mode-tag { font: 10px var(--mono); text-transform: uppercase; letter-spacing: .08em;
               padding: 2px 6px; border: 1px solid var(--line); color: var(--muted); border-radius: 0; flex: none; }
   .mode-tag.halted { color: var(--down); border-color: var(--down-dim); }
+  .mode-tag.sim { color: var(--warn); border-color: var(--warn-dim); }
+  .mode-tag.shadow, .mode-tag.backtest { color: var(--muted); }
+  .mode-tag.real { color: var(--down); border-color: var(--down); }
 
-  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 0;
-        padding: 10px 12px; font: 12px/1.5 var(--mono); font-variant-numeric: tabular-nums;
-        overflow: auto; max-height: 220px; margin: 10px 0 0; color: var(--text2); }
+  /* console panel */
+  .console { border: 1px solid var(--line); background: var(--bg); margin-top: 10px; }
+  .console-bar { display: flex; align-items: center; gap: 10px; padding: 5px 10px;
+                 border-bottom: 1px solid var(--line); background: var(--panel); }
+  .console-title { font: 500 9.5px var(--mono); text-transform: uppercase;
+                   letter-spacing: .18em; color: var(--muted); }
+  .console-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .console-count { font: 10px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cpause { font: 9.5px var(--mono) !important; text-transform: uppercase; letter-spacing: .1em;
+            padding: 2px 8px !important; border-radius: 6px; color: var(--muted); }
+  .cpause.on { color: var(--warn); border-color: var(--warn-dim); background: rgba(212, 167, 44, .05); }
+  .console-body { padding: 8px 10px; font: 12.5px/1.6 var(--mono); font-variant-numeric: tabular-nums;
+                  overflow: auto; max-height: 220px; color: var(--text2); }
+  .cline { display: flex; gap: 10px; }
+  .clnum { color: var(--faint); flex: none; min-width: 3ch; text-align: right; user-select: none; }
+  .clts { color: var(--faint); flex: none; }
+  .clmsg { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
   .cout.err { color: var(--down); }
   .cout.kill { color: var(--down); font-weight: 700; }
-  .cout.act { color: var(--up); }
+  .cout.act { color: var(--up); font-weight: 500; }
 
   table { width: 100%; border-collapse: collapse; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
   th { text-align: left; color: var(--muted); font: 500 10px var(--mono); text-transform: uppercase;
@@ -90,17 +126,27 @@
   .seg button:hover { background: var(--hover); color: var(--text); }
   .seg button.on { background: var(--hover); color: var(--up); border-top-color: var(--up); }
 
-  .sess { display: flex; align-items: center; gap: 8px; padding: 7px 8px; cursor: pointer; }
+  /* sessions: two-line rows */
+  .sess { display: flex; align-items: center; gap: 10px; padding: 8px; cursor: pointer;
+          border-bottom: 1px solid var(--line);
+          transition: background-color .15s ease; }
+  .sess:last-child { border-bottom: none; }
   .sess:hover { background: var(--hover); }
   .sess.sel { background: var(--hover); }
   .sess.sel .name { color: var(--text); }
-  .sess .name { font: 12px var(--mono); flex: 1; color: var(--text2);
+  .sess-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .sess-t { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .sess .name { font: 12px var(--mono); color: var(--text2);
                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sess .meta { color: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+  .sess-b { font: 10.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess-r { font: 12.5px var(--mono); font-variant-numeric: tabular-nums; flex: none; }
 
   .runhead { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 9px; }
   .runid { font: 600 12.5px var(--mono); color: var(--text); }
-  .runstat { margin-left: auto; font: 12px var(--mono); color: var(--text2); font-variant-numeric: tabular-nums; }
+  .runstat { margin-left: auto; font: 400 14px var(--mono); color: var(--text2);
+             font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .runbtns { display: flex; gap: 8px; flex: none; }
 
   .banner { padding: 10px 12px; font: 12px/1.5 var(--mono); margin-bottom: 12px;
             border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
@@ -111,17 +157,17 @@
                 padding: 8px 12px; margin: 0 0 12px; }
 
   .kv { font: 12px/1.7 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-  .kv b { color: var(--text); font-weight: 500; }
+  .kv b { color: var(--text); font-weight: 500; font-size: 14px; }
 
   .modal-bg { position: fixed; inset: 0; background: rgba(10, 10, 11, .75); display: none;
               align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 10; }
   .modal-bg.open { display: flex; }
   .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 0;
            width: 600px; max-width: 100%; max-height: 85vh; overflow: auto; padding: 20px; }
-  .modal h3 { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .14em;
+  .modal h3 { font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: .18em;
               color: var(--muted); border-bottom: 1px solid var(--line);
-              padding-bottom: 6px; margin: 20px 0 12px; }
-  .modal h3:first-of-type { margin-top: 0; }
+              padding: 14px 0 6px; margin: 14px 0 12px; }
+  .modal h3:first-of-type { margin-top: 0; padding-top: 0; }
   .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
   .fielderr { display: none; margin-top: 14px; border: 1px solid var(--down-dim);
@@ -131,54 +177,87 @@
   #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
            background: var(--hover); border: 1px solid var(--line); padding: 8px 14px;
            border-radius: 6px; font: 12px var(--mono); color: var(--text); display: none; z-index: 20; }
+
+  /* responsive: single column under 1024px, order = runs, sessions, inspector, launch */
+  @media (max-width: 1024px) {
+    header { position: sticky; top: 0; z-index: 15; }
+    main { grid-template-columns: 1fr;
+           grid-template-areas: "runs" "sessions" "inspector" "launch";
+           padding: 14px 12px; }
+  }
+  @media (max-width: 480px) {
+    header { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+    main { padding: 12px 10px; gap: 10px; }
+    .panel, .card { padding: 12px; }
+    .console-body { font-size: 11.5px; }
+    .runhead { flex-wrap: wrap; }
+    .runid { word-break: break-all; }
+    .runbtns { width: 100%; }
+    .runbtns button { flex: 1; }
+    .row button { flex: 1; }
+    .grid2 { grid-template-columns: 1fr; }
+    .sec-h .val, .runstat { white-space: normal; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot.pulse { animation: none; }
+    * { transition: none !important; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>vouch</h1><span class="live" id="clock"></span>
+  <h1 class="wordmark">VOUCH<span class="wm-sub">/ operator console</span></h1>
+  <span class="dot" id="s1dot" title="System-1 server health"></span>
+  <span class="live" id="clock"></span>
   <span class="spacer"></span>
   <span class="kv" id="headfee"></span>
   <button onclick="openSettings()">Settings</button>
 </header>
 <main>
-  <div class="stack">
+  <section class="zone z-launch">
     <div class="panel">
       <div class="sec-h">launch<span class="val" id="modelabel"></span></div>
       <div class="seg" id="modetabs"></div>
       <div id="paramfields"></div>
-      <label>venue</label>
+      <label class="grouplabel">venue</label>
       <input type="hidden" id="venue">
       <div class="seg" id="venueseg"></div>
       <div class="kv" id="venuedocs" style="margin-top:6px"></div>
       <div style="margin-top:14px"><button class="primary" style="width:100%" onclick="startRun()" id="startbtn">Start</button></div>
     </div>
+  </section>
+
+  <section class="zone z-sessions">
     <div class="panel">
       <div class="sec-h">sessions<span class="val" id="sesscount"></span></div>
       <div id="sessions"><div class="dimtext">loading...</div></div>
     </div>
-  </div>
+  </section>
 
-  <div>
+  <section class="zone z-runs">
     <div id="realbanner"></div>
-    <div class="sec-h" style="margin-top:2px">active runs<span class="val" id="runcount"></span></div>
-    <div id="activeruns"><div class="banner">nothing running. Launch something on the left.</div></div>
-    <div class="sec-h" style="margin-top:18px">inspector<span class="val" id="inspname"></span></div>
+    <div class="sec-h">active runs<span class="val" id="runcount"></span></div>
+    <div id="activeruns"><div class="banner">nothing running. Launch something below.</div></div>
+  </section>
+
+  <section class="zone z-inspector">
+    <div class="sec-h">inspector<span class="val" id="inspname"></span></div>
     <div id="inspector"><div class="banner">select a session to inspect it</div></div>
-  </div>
+  </section>
 </main>
 
 <div class="modal-bg" id="settingsbg">
   <div class="modal">
-    <h3>Settings</h3>
+    <h3>Rails (hard code limits)</h3>
     <div class="dimtext" style="font-size:12px;margin-bottom:6px">
-      Rails (hard code limits) are shown per field; System-2 and the UI cannot save values outside them.
+      Rails are shown per field; System-2 and the UI cannot save values outside them.
     </div>
     <div class="grid2" id="rulefields"></div>
     <div class="grid2" style="margin-top:10px">
       <div><label>fee bps per side</label><input id="cfg_fee" type="number"></div>
       <div><label>product</label><input id="cfg_product"></div>
     </div>
-    <h3>System-1 provider (the decision head)</h3>
+    <h3>System-1 (the decision head)</h3>
     <label>provider</label>
     <select id="r_s1_provider" onchange="renderS1Hint()">
       <option value="local">Local laya library (in-process, slow cold start)</option>
@@ -218,6 +297,7 @@ let state = null, selMode = "shadow", selSession = null, timers = {};
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const jsq = s => esc(s).replace(/'/g, "&#39;");
 const cls = n => n >= 0 ? "pos" : "neg";
 const pct = n => (n >= 0 ? "+" : "") + n.toFixed(3) + "%";
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block";
@@ -229,6 +309,60 @@ function hl(line) {
   if (/kill.?switch|halt/i.test(e)) return `<span class="cout kill">${e}</span>`;
   if (/error|traceback|exception|failed/i.test(e)) return `<span class="cout err">${e}</span>`;
   return e.replace(/\b(BUY|SELL|FILL|FILLED|ENTRY|EXIT)\b/g, '<span class="cout act">$1</span>');
+}
+
+/* ---------- console panels ----------
+   Every console tail renders as a terminal panel: toolbar (CONSOLE label,
+   live line counter, pause-scroll toggle) over a body of line rows
+   (line number, optional leading [HH:MM:SS] timestamp, message).
+   HF download-bar noise is dropped client-side. Autoscroll only follows
+   the tail when the user is already at the bottom and not paused. */
+const consoleState = {}; // key -> {paused, stick}
+const NOISE_RE = /Fetching \d+ files|it\/s\]/;
+const GLYPH_RE = /^[|_/%.\s=-]+$/; // bare progress-bar artifacts with no words
+
+function parseLine(line) {
+  const m = line.match(/^\s*\[(\d{1,2}:\d{2}:\d{2})\]\s*/);
+  return m ? [m[1], line.slice(m[0].length)] : ["", line];
+}
+function mountConsole(key, lines) {
+  const st = consoleState[key] || (consoleState[key] = { paused: false, stick: true });
+  const kept = (lines || []).filter(l => !NOISE_RE.test(l) && l.trim() && !GLYPH_RE.test(l));
+  const rows = kept.map((line, i) => {
+    const [ts, msg] = parseLine(line);
+    return `<div class="cline"><span class="clnum">${i + 1}</span><span class="clts">${ts}</span><span class="clmsg">${hl(msg)}</span></div>`;
+  }).join("");
+  return `<div class="console">
+    <div class="console-bar">
+      <span class="console-title">console</span>
+      <span class="console-right">
+        <span class="console-count">${kept.length} lines</span>
+        <button type="button" class="cpause ${st.paused ? "on" : ""}" onclick="togglePause('${jsq(key)}', this)">${st.paused ? "paused" : "pause"}</button>
+      </span>
+    </div>
+    <div class="console-body" data-ckey="${esc(key)}">${rows || '<span class="clmsg dimtext">no output yet</span>'}</div>
+  </div>`;
+}
+function togglePause(key, btn) {
+  const st = consoleState[key] || (consoleState[key] = { paused: false, stick: true });
+  st.paused = !st.paused;
+  st.stick = !st.paused && st.stick;
+  btn.classList.toggle("on", st.paused);
+  btn.textContent = st.paused ? "paused" : "pause";
+}
+function captureConsoleScroll() {
+  document.querySelectorAll(".console-body[data-ckey]").forEach(el => {
+    const st = consoleState[el.dataset.ckey];
+    if (!st) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    st.stick = !st.paused && atBottom;
+  });
+}
+function afterConsoleMount() {
+  document.querySelectorAll(".console-body[data-ckey]").forEach(el => {
+    const st = consoleState[el.dataset.ckey];
+    if (st && st.stick) el.scrollTop = el.scrollHeight;
+  });
 }
 
 async function api(path, opts) {
@@ -279,19 +413,21 @@ async function startRun() {
 function renderRuns() {
   const runs = state.active;
   $("runcount").textContent = runs.length ? runs.length + " running" : "";
-  if (!runs.length) { $("activeruns").innerHTML = '<div class="banner">nothing running. Launch something on the left.</div>'; return; }
+  captureConsoleScroll();
+  if (!runs.length) { $("activeruns").innerHTML = '<div class="banner">nothing running. Launch something below.</div>'; return; }
   $("activeruns").innerHTML = runs.map(r => `
     <div class="card">
       <div class="runhead">
         <span class="dot ${r.running ? "on" : (r.exit_code ? "err" : "")}"></span>
         <span class="runid">${esc(r.id)}</span>
-        <span class="mode-tag">${esc(r.mode)}</span>
+        <span class="mode-tag ${esc(r.mode)}">${esc(r.mode)}</span>
         <span class="runstat ${r.running ? "" : (r.exit_code ? "neg" : "dimtext")}">${r.running ? r.uptime_s + "s" : "exit " + r.exit_code}</span>
-        <button class="danger" onclick="doStop('${r.id}')">Stop</button>
-        <button onclick="doRestart('${r.id}')">Restart</button>
+        <span class="runbtns"><button class="danger" onclick="doStop('${r.id}')">Stop</button>
+        <button onclick="doRestart('${r.id}')">Restart</button></span>
       </div>
-      <pre>${(r.console_tail || []).map(hl).join("\n") || '<span class="dimtext">no output yet</span>'}</pre>
+      ${mountConsole("run:" + r.id, r.console_tail || [])}
     </div>`).join("");
+  afterConsoleMount();
 }
 async function doStop(id) { try { await api(`/api/runs/${id}/stop`, {method: "POST"}); toast("stopped " + id); refresh(); } catch (e) { toast(e.message); } }
 async function doRestart(id) { try { await api(`/api/runs/${id}/restart`, {method: "POST"}); toast("restarted " + id); refresh(); } catch (e) { toast(e.message); } }
@@ -299,13 +435,22 @@ async function doRestart(id) { try { await api(`/api/runs/${id}/restart`, {metho
 /* ---------- sessions + inspector ---------- */
 function renderSessions() {
   $("sesscount").textContent = state.sessions.length ? state.sessions.length + " found" : "";
-  $("sessions").innerHTML = state.sessions.map(s => `
-    <div class="sess ${s.id === selSession ? "sel" : ""}" onclick="inspect('${s.id}')">
-      <span class="dot ${s.summary && s.summary.halted ? "err" : ""}"></span>
-      <span class="name">${esc(s.id)}</span>
-      ${s.summary && s.summary.halted ? '<span class="mode-tag halted">halt</span>' : ""}
-      <span class="meta">${s.summary ? (s.summary.return_pct !== undefined ? pct(s.summary.return_pct) : "") : ""}</span>
-    </div>`).join("") || '<div class="dimtext">no sessions yet</div>';
+  $("sessions").innerHTML = state.sessions.map(s => {
+    const sum = s.summary;
+    const hasRet = sum && sum.return_pct !== undefined;
+    const sub = sum ? `equity ${sum.final_equity ?? "-"} · ${sum.closed_trades ?? 0} trades` : "no summary";
+    return `<div class="sess ${s.id === selSession ? "sel" : ""}" onclick="inspect('${s.id}')">
+      <div class="sess-l">
+        <div class="sess-t">
+          <span class="dot ${sum && sum.halted ? "err" : ""}"></span>
+          <span class="name">${esc(s.id)}</span>
+          ${sum && sum.halted ? '<span class="mode-tag halted">halt</span>' : ""}
+        </div>
+        <div class="sess-b">${esc(sub)}</div>
+      </div>
+      <span class="sess-r ${hasRet ? cls(sum.return_pct) : "dimtext"}">${hasRet ? pct(sum.return_pct) : "-"}</span>
+    </div>`;
+  }).join("") || '<div class="dimtext">no sessions yet</div>';
 }
 
 async function inspect(id) {
@@ -359,8 +504,10 @@ async function loadSession() {
       <td>${esc((r.s2.backend || "").slice(0, 40))}</td><td>${esc(JSON.stringify(r.s2.applied))}</td>
       <td class="dimtext">${esc(r.s2.rejected ? JSON.stringify(r.s2.rejected.why || r.s2.rejected) : "")}</td></tr>`).join("") + "</table></div>";
   }
-  if (s.console && s.console.length) html += `<div class="card"><h2>Console</h2><pre>${s.console.map(hl).join("\n")}</pre></div>`;
+  if (s.console && s.console.length) html += `<div class="card"><h2>Console</h2>${mountConsole("insp:" + selSession, s.console)}</div>`;
+  captureConsoleScroll();
   $("inspector").innerHTML = html || '<div class="banner">no data yet for this session</div>';
+  afterConsoleMount();
 }
 
 /* ---------- settings ---------- */
@@ -465,10 +612,24 @@ async function refresh() {
   if (selSession && !$("inspname").textContent) loadSession();
 }
 
+/* System-1 server health dot: pulsing emerald only when the configured
+   provider is a reachable server; red when unreachable; neutral when n/a. */
+async function checkS1() {
+  const d = $("s1dot");
+  try {
+    const h = await api("/api/s1/health");
+    if (h.probe && h.probe.status === "ok") d.className = "dot on pulse";
+    else if (typeof h.probe === "string" && h.probe.indexOf("n/a") === 0) d.className = "dot";
+    else d.className = "dot err";
+  } catch { d.className = "dot err"; }
+}
+
 renderModeTabs();
 refresh();
+checkS1();
 setInterval(refresh, 4000);
 setInterval(() => { if (selSession) loadSession(); }, 5000);
+setInterval(checkS1, 15000);
 </script>
 </body>
 </html>
