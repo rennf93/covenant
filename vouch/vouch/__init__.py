@@ -7,7 +7,7 @@ LAYOUT (import layering, enforced by convention and checked by grep):
     vouch.attest    LEAF: covenant receipts, ledger, evidence, chain commits
     vouch.analysis  LEAF except backtest.py, which replays the live path
                     and sits ABOVE engine (one direction only)
-    vouch.engine    may use venues + attest (+ analysis.calibration, a pure leaf)
+    vouch.engine    may use venues + attest (+ calibration, a pure leaf)
     vouch.server    may use everything (the dashboard)
     run_*.py        entry points, project root
 
@@ -21,9 +21,9 @@ from __future__ import annotations
 
 from vouch.analysis.analysis import add_forward_returns, load_decisions, rank_ic, report
 from vouch.analysis.backtest import run_backtest
-from vouch.analysis.calibration import Calibrator
 from vouch.analysis.sft_data import build_dataset
 from vouch.attest import AttestationConfig, Attestor, EpochLedger, merkle, receipts
+from vouch.calibration import Calibrator
 from vouch.config import Settings, load_settings
 from vouch.engine import Broker, Rules, stop_level_for
 from vouch.engine.session import run_session

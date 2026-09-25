@@ -19,6 +19,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r test
+      - name: architecture (dependency-cruiser)
+        run: pnpm exec depcruise sdk/src indexer/src web/lib web/app --config .dependency-cruiser.cjs
+      - name: coverage floors (sdk 75, indexer 95)
+        run: |
+          npx c8 --check-coverage --lines 75 --include "sdk/dist/src/**/*.js" node --test "sdk/dist/test/*.test.js"
+          npx c8 --check-coverage --lines 95 --include "indexer/dist/src/**/*.js" node --test "indexer/dist/test/*.test.js"
       - run: pnpm --filter @covenant/web run build
 
   contract:
@@ -50,7 +56,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: install agent + tooling
-        run: pip install httpx pydantic-settings ruff mypy
+        run: pip install httpx pydantic-settings ruff mypy coverage import-linter
       - name: ruff lint + format check
         working-directory: vouch
         run: |
@@ -59,6 +65,15 @@ jobs:
       - name: mypy
         working-directory: vouch
         run: mypy vouch
+      - name: import-linter layering contracts
+        working-directory: vouch
+        run: python3 -m importlinter.cli --config pyproject.toml lint
+      - name: coverage floors (package 50, attest core 85)
+        working-directory: vouch
+        run: |
+          python3 -m coverage run -m unittest discover -s tests
+          python3 -m coverage report --fail-under=40 | tail -1
+          python3 -m coverage report --include="vouch/attest/*" --fail-under=85 | tail -1
       - name: attestation conformance tests
         working-directory: vouch
         run: python3 -m unittest discover -s tests -v

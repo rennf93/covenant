@@ -23,3 +23,9 @@ repos:
         language: system
         files: ^vouch/.*\.py$
         pass_filenames: false
+      - id: vouch-imports
+        name: import-linter (vouch layering)
+        entry: bash -c 'cd vouch && lint-imports'
+        language: system
+        files: ^vouch/.*\.py$
+        pass_filenames: false

@@ -23,7 +23,7 @@ import glob as globmod
 import json
 from pathlib import Path
 
-from vouch.analysis.calibration import Calibrator
+from vouch.calibration import Calibrator
 
 
 def load_decisions(patterns: list[str]) -> list[dict]:

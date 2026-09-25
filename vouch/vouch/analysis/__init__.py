@@ -21,8 +21,8 @@ from vouch.analysis.analysis import (
     rank_ic,
     report,
 )
-from vouch.analysis.calibration import Calibrator
 from vouch.analysis.sft_data import ENTRY_QUESTIONS, build_dataset
+from vouch.calibration import Calibrator
 
 __all__ = [
     "Calibrator",

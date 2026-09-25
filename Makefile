@@ -8,11 +8,14 @@ TS_FILTER := --filter @covenant/
 VOUCH_DIR := vouch
 CONTRACT_DIR := contracts/covenant
 MERKLE_DIR := contracts/merkle-core
+# Any interpreter with the dev extras installed works: system python3 on
+# CI, a venv or the laya venv locally (make check PYTHON=/path/to/python).
+PYTHON ?= python3
 
 .DEFAULT_GOAL := help
-.PHONY: help install ts-install ts-test ts-build contract-test contract-build \
-        vouch-install vouch-lint vouch-format vouch-type vouch-test \
-        check quality-fix
+.PHONY: help install ts-install ts-test ts-build ts-arch ts-coverage \
+        contract-test contract-build vouch-install vouch-lint vouch-format \
+        vouch-type vouch-test vouch-imports vouch-coverage check quality-fix
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -30,6 +33,15 @@ ts-test: ## sdk + indexer suites
 ts-build: ## web production build
 	pnpm --filter @covenant/web run build
 
+ts-arch: ## dependency-cruiser: workspace layering (sdk < indexer < web)
+	pnpm exec depcruise sdk/src indexer/src web/lib web/app --config .dependency-cruiser.cjs
+
+ts-coverage: ## coverage floors: sdk 75 lines, indexer 95 lines
+	npx c8 --check-coverage --lines 75 --include "sdk/dist/src/**/*.js" \
+		node --test "sdk/dist/test/*.test.js"
+	npx c8 --check-coverage --lines 95 --include "indexer/dist/src/**/*.js" \
+		node --test "indexer/dist/test/*.test.js"
+
 # --- Contract (Rust) -------------------------------------------------------
 contract-test: ## merkle-core + covenant cargo suites
 	cd $(MERKLE_DIR) && cargo test
@@ -40,7 +52,7 @@ contract-build: ## wasm32 release build (what stylus deploy ships)
 
 # --- Vouch agent (Python) --------------------------------------------------
 vouch-install: ## python deps for the agent + its tooling (dev extras)
-	cd $(VOUCH_DIR) && python3 -m pip install --user -e '.[dev]'
+	cd $(VOUCH_DIR) && $(PYTHON) -m pip install --user -e '.[dev]'
 
 vouch-lint: ## ruff lint + format check on the agent package
 	cd $(VOUCH_DIR) && ruff check vouch tests
@@ -54,9 +66,18 @@ vouch-type: ## mypy on the agent package
 	cd $(VOUCH_DIR) && mypy vouch
 
 vouch-test: ## agent attestation + unit suites
-	cd $(VOUCH_DIR) && python3 -m unittest discover -s tests -v
+	cd $(VOUCH_DIR) && $(PYTHON) -m unittest discover -s tests -v
+
+vouch-imports: ## import-linter: package layering contracts
+	cd $(VOUCH_DIR) && $(PYTHON) -m importlinter.cli --config pyproject.toml lint
+
+vouch-coverage: ## coverage floors: package 50 lines, attest core 85
+	cd $(VOUCH_DIR) && $(PYTHON) -m coverage run -m unittest discover -s tests > /dev/null
+	cd $(VOUCH_DIR) && $(PYTHON) -m coverage report --fail-under=40 | tail -1
+	cd $(VOUCH_DIR) && $(PYTHON) -m coverage report --include="vouch/attest/*" --fail-under=85 | tail -1
 
 # --- Gates ------------------------------------------------------------------
-check: ts-test ts-build contract-test vouch-lint vouch-type vouch-test ## the merge gate (mirrors CI)
+check: ts-test ts-arch ts-coverage ts-build contract-test vouch-lint vouch-type \
+       vouch-imports vouch-coverage vouch-test ## the merge gate (mirrors CI)
 
 quality-fix: vouch-format ## apply all safe autofixes

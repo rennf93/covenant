@@ -1,7 +1,7 @@
 """vouch.engine: session orchestration, decision head, rails, paper broker.
 
 Re-exports the core trading surface. Layering: engine may use venues and
-attest (and analysis.calibration, a pure leaf); it must never import
+attest (and calibration, a pure leaf); it must never import
 vouch.server. See vouch/__init__.py for the full layering map.
 """
 

@@ -16,7 +16,7 @@ dependencies = [
 ]
 # uvicorn and websockets are runner/dashboard extras, not package imports.
 [project.optional-dependencies]
-dev = ["ruff>=0.8", "mypy>=1.13", "websockets", "uvicorn>=0.29"]
+dev = ["ruff>=0.8", "mypy>=1.13", "websockets", "uvicorn>=0.29", "coverage>=7.6", "import-linter>=4.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["vouch"]
@@ -60,3 +60,44 @@ disallow_untyped_defs = false
 module = "tests.*"
 disallow_untyped_defs = false
 
+
+[tool.coverage.run]
+source = ["vouch"]
+branch = true
+
+[tool.coverage.report]
+# Ratchet: raise as the live-loop modules gain integration harnesses.
+fail_under = 40
+show_missing = true
+
+[tool.importlinter]
+root_packages = ["vouch"]
+
+[[tool.importlinter.contracts]]
+name = "Package layers (higher may import lower, never reverse)"
+type = "layers"
+layers = [
+    "vouch.server",
+    "vouch.analysis",
+    "vouch.engine",
+    "vouch.venues",
+    "vouch.attest",
+]
+
+[[tool.importlinter.contracts]]
+name = "Foundation modules stay dependency-free"
+type = "forbidden"
+source_modules = [
+    "vouch.config",
+    "vouch.exceptions",
+    "vouch.logging",
+    "vouch.protocols",
+    "vouch.calibration",
+]
+forbidden_modules = [
+    "vouch.attest",
+    "vouch.venues",
+    "vouch.engine",
+    "vouch.analysis",
+    "vouch.server",
+]

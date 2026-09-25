@@ -13,12 +13,12 @@ Two modes, chosen by whether a position is open:
   fire independently; this is laya's chance to leave on deterioration
   before the stop is hit. Gated on rules.exit_pressure_min.
 
-If a calibration file exists (see vouch/analysis/calibration.py) and
+If a calibration file exists (see vouch/calibration.py) and
 rules.min_edge_pct > 0, entries additionally require calibrated expected
 value to clear round-trip costs. No calibration = gate off, behavior as before.
 
 Layering: engine. May use venues and attest; must not import server. The
-calibration import is engine -> analysis.calibration, which is a leaf module
+calibration import is engine -> calibration, which is a leaf module
 (pure python, no package imports); the reverse direction (analysis.backtest
 importing engine) never crosses an in-flight module init, so this is cycle-free.
 """
@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vouch.analysis.calibration import Calibrator
+from vouch.calibration import Calibrator
 from vouch.config import load_settings
 from vouch.engine.broker import Broker
 from vouch.engine.market import Tick
