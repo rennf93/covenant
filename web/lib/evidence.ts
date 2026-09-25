@@ -7,7 +7,10 @@
  * Bundle v2 fields: signer, chainId, contract, signature (0x, 65-byte rsv),
  * signedAt, plus the original v1 fields with equityUsdg/netFlowUsdg as
  * base-unit integer strings and receipts as before. v1 bundles (unsigned,
- * numeric equity fields) parse too and are reported as unsigned.
+ * numeric equity fields) parse too and are reported as unsigned. Bundles may
+ * also carry an optional unsigned "witness" annotation (the Pyth network
+ * price at commit time); it is additive, outside the signed message, and
+ * parsed defensively like every other field.
  */
 import { receiptHash, verifyProof, Side, Venue, type ReceiptInput } from "@covenant/sdk";
 import { hashTypedData, recoverAddress, verifyTypedData, type Address, type Hash } from "viem";
@@ -49,6 +52,22 @@ export interface EvidenceBundle {
   contract: string | null;
   signature: string | null;
   signedAt: string | null;
+  /** Unsigned Pyth price annotation; present only when the producer captured one. */
+  witness: EvidenceWitness | null;
+}
+
+export interface EvidenceWitness {
+  /** Only "pyth" today. */
+  source: string;
+  /** Pyth feed id, 0x + 32 bytes. */
+  priceId: string;
+  /** Price at pyth scale: human price = price * 10^expo. */
+  price: string;
+  expo: number;
+  /** Confidence interval around the price, same scale as price. */
+  confidence: string;
+  /** Unix seconds. */
+  publishTime: number;
 }
 
 export interface ReceiptCheck {
@@ -90,6 +109,25 @@ function hex32(v: unknown, field: string): string {
 function addr(v: unknown, field: string): string {
   if (typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v)) return v;
   throw new Error(`field ${field} must be a 20-byte hex address`);
+}
+
+/**
+ * The optional unsigned witness annotation, validated like every other field
+ * (a malformed witness fails the parse loudly rather than being dropped
+ * silently). Source must be "pyth", the priceId a 32-byte hex id, price and
+ * confidence exact integer strings, expo and publishTime integers.
+ */
+function parseWitness(raw: unknown): EvidenceWitness {
+  if (!isObj(raw)) throw new Error("field witness must be an object");
+  if (raw.source !== "pyth") throw new Error('field witness.source must be "pyth"');
+  return {
+    source: "pyth",
+    priceId: hex32(raw.priceId, "witness.priceId"),
+    price: intString(raw.price, "witness.price"),
+    expo: Number(intString(raw.expo, "witness.expo")),
+    confidence: intString(raw.confidence, "witness.confidence"),
+    publishTime: Number(intString(raw.publishTime, "witness.publishTime")),
+  };
 }
 
 /** Parses and validates a bundle; throws with the first structural problem found. */
@@ -154,6 +192,7 @@ export function parseEvidenceBundle(raw: unknown): EvidenceBundle {
     contract: raw.contract == null ? null : addr(raw.contract, "contract"),
     signature,
     signedAt: raw.signedAt == null ? null : intString(raw.signedAt, "signedAt"),
+    witness: raw.witness == null ? null : parseWitness(raw.witness),
   };
 }
 
@@ -293,14 +332,41 @@ export async function verifyBundleSignature(
   }
 }
 
-/** 8-decimals fixed point (receipt price/fee/size) to a human decimal string. */
-export function formatFixed8(v: string): string {
+/**
+ * value * 10^expo to a human decimal string (pyth scale, expo is negative in
+ * practice). Integer math only, so no float round-trips.
+ */
+export function formatScaledDecimal(v: string, expo: number): string {
   const value = BigInt(v);
+  if (expo >= 0) return (value * 10n ** BigInt(expo)).toString();
   const neg = value < 0n;
   const abs = neg ? -value : value;
-  const whole = abs / 100_000_000n;
-  const frac = (abs % 100_000_000n).toString().padStart(8, "0").replace(/0+$/, "");
+  const scale = 10n ** BigInt(-expo);
+  const whole = abs / scale;
+  const frac = (abs % scale).toString().padStart(-expo, "0").replace(/0+$/, "");
   return `${neg ? "-" : ""}${whole.toString()}${frac === "" ? "" : `.${frac}`}`;
+}
+
+/** 8-decimals fixed point (receipt price/fee/size) to a human decimal string. */
+export function formatFixed8(v: string): string {
+  return formatScaledDecimal(v, -8);
+}
+
+/** Shortened 0x id for one-line display: head...tail. */
+export function trimHexId(id: string): string {
+  return id.length <= 18 ? id : `${id.slice(0, 10)}...${id.slice(-6)}`;
+}
+
+/** The witness facts without the "Pyth witness - " prefix (the kv value). */
+export function formatWitnessSummary(w: EvidenceWitness): string {
+  const price = formatScaledDecimal(w.price, w.expo);
+  const conf = formatScaledDecimal(w.confidence, w.expo);
+  return `$${price} at ${unixToIso(String(w.publishTime))} (id ${trimHexId(w.priceId)}, confidence +/- $${conf})`;
+}
+
+/** The one-line witness summary shared by the drawer and the /verify result. */
+export function formatWitnessLine(w: EvidenceWitness): string {
+  return `Pyth witness - ${formatWitnessSummary(w)}`;
 }
 
 export function venueName(v: number): string {

@@ -102,6 +102,14 @@ class AttestSettings(_FrozenSettings):
     # Optional kubo RPC base URL (e.g. http://127.0.0.1:5001). When set, the
     # evidence bundle is pinned there and the commit references ipfs://<cid>.
     ipfs_api: str = Field(default="", validation_alias="COVENANT_IPFS_API")
+    # Optional neutral price witness (see attest/witness.py): the Pyth feed id
+    # for the traded instrument (SOL/USD example in .env.example). Empty = the
+    # bundle carries no witness. A fetch failure never fails a commit.
+    pyth_price_id: str = Field(default="", validation_alias="COVENANT_PYTH_PRICE_ID")
+    # Hermes REST base URL the witness price is read from.
+    pyth_hermes_url: str = Field(
+        default="https://hermes.pyth.network", validation_alias="COVENANT_PYTH_HERMES_URL"
+    )
 
 
 class Settings(_FrozenSettings):

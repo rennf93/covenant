@@ -5,6 +5,7 @@ import CopyButton from "./copy-button";
 import { formatUsdg } from "../lib/api";
 import {
   formatFixed8,
+  formatWitnessSummary,
   parseEvidenceBundle,
   sideName,
   unixToIso,
@@ -270,6 +271,19 @@ export function EvidenceBundleView({
           </div>
         )}
       </div>
+
+      {bundle.witness !== null && (
+        <div className="ev-witness">
+          <div className="kv">
+            <span>Pyth witness</span>
+            <span>{formatWitnessSummary(bundle.witness)}</span>
+          </div>
+          <p className="honest-line">
+            unsigned cross-check from a neutral price feed; verify against Pyth&apos;s historical
+            API.
+          </p>
+        </div>
+      )}
 
       <div className="stamp-row">
         <div

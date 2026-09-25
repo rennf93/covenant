@@ -288,6 +288,22 @@ Bundle schema (v2, the web verifier must implement exactly this):
   chainId, verifyingContract}`; message
   `{protocol: "covenant-v1", strategyId, epochIndex, committedAt,
   equityUsdg (int256), netFlowUsdg (int256), tradesRoot (bytes32)}`.
+- Optional `witness` annotation (additive, present only when
+  `COVENANT_PYTH_PRICE_ID` is set): `{source: "pyth", priceId (0x + 32
+  bytes), price (integer string at pyth scale), expo (int), confidence
+  (integer string), publishTime (unix int)}` - the Pyth network price for
+  the instrument at commit time, human price = price * 10^expo. Example:
+
+  ```json
+  "witness": {
+    "source": "pyth",
+    "priceId": "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b121",
+    "price": "14732000000",
+    "expo": -8,
+    "confidence": "120000",
+    "publishTime": 1758800000
+  }
+  ```
 
 What is signed, honestly: the signature covers exactly the typed message
 above (who, which epoch, what equity/flow, which trades root) - it is made
@@ -297,7 +313,12 @@ and the onchain receipts. What is NOT signed or proven: the equity/netFlow
 VALUES themselves are self-attested paper-accounting (in shadow they are
 paper money by definition), and in ledger-only mode bundles carry the
 deterministic unsigned fallback (zero signer, 65 zero bytes) which every
-verifier must reject as unsigned.
+verifier must reject as unsigned. The `witness` object, when present, is
+also UNSIGNED: it is a neutral price cross-check (Pyth via Hermes, 3s
+timeout) embedded outside the EIP-712 message so the signed schema stays
+byte-identical with or without it - sanity-check material, not proof. A
+fetch failure or missing feed id simply omits the field and never fails a
+commit; verify any witness price against Pyth's historical API.
 
 Optional publishing: set `COVENANT_IPFS_API` (kubo RPC base URL, e.g.
 `http://127.0.0.1:5001`) and the bundle is pinned via `/api/v0/add` (stdlib
@@ -338,6 +359,11 @@ COVENANT_STRATEGY_ID=0
 COVENANT_STRATEGY_NAME=vouch-sol
 COVENANT_EVIDENCE_DIR=evidence
 COVENANT_IPFS_API=            # optional; kubo RPC base URL
+# Optional neutral price witness: Pyth feed id for the traded instrument.
+# When set, each evidence bundle gains an unsigned "witness" annotation with
+# the Pyth price at commit time (SOL/USD example id below).
+COVENANT_PYTH_PRICE_ID=
+COVENANT_PYTH_HERMES_URL=https://hermes.pyth.network
 ```
 
 Example: an attested shadow session (ledger-only unless the connection

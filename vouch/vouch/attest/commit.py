@@ -28,7 +28,12 @@ land per run (out/<run_id>/evidence/epoch-N.json plus a stable copy under
 the configured evidence root, evidence/<run_id>/epoch-N.json by default) so
 runs can no longer overwrite each other. If COVENANT_IPFS_API points at a
 kubo RPC the stable copy is also pinned there and the commit references
-ipfs://<cid>; a publishing failure is logged, never fatal.
+ipfs://<cid>; a publishing failure is logged, never fatal. When
+COVENANT_PYTH_PRICE_ID is set the bundle also carries an optional top-level
+"witness" annotation (the Pyth network price for the instrument at commit
+time, attest/witness.py): an unsigned, additive cross-check OUTSIDE the
+EIP-712 message, so the signed schema stays byte-identical either way, and
+a witness failure never fails a commit.
 
 Layering: leaf. Attest must never import vouch.engine, vouch.venues, or
 vouch.server; CommitError comes from vouch.exceptions.
@@ -48,6 +53,7 @@ from vouch.attest import merkle
 from vouch.attest.ledger import EpochLedger
 from vouch.attest.onchain import OnchainState, finalize_due, resync_plan
 from vouch.attest.receipts import usdg_from_usd
+from vouch.attest.witness import fetch_witness
 from vouch.config import load_settings
 from vouch.exceptions import CommitError
 from vouch.logging import get_logger
@@ -152,6 +158,8 @@ class AttestationConfig:
     chain: str
     evidence_dir: Path
     ipfs_api: str = ""
+    pyth_price_id: str = ""
+    pyth_hermes_url: str = "https://hermes.pyth.network"
 
     @classmethod
     def from_env(cls) -> AttestationConfig:
@@ -164,6 +172,8 @@ class AttestationConfig:
             chain=a.chain,
             evidence_dir=Path(a.evidence_dir),
             ipfs_api=a.ipfs_api,
+            pyth_price_id=a.pyth_price_id,
+            pyth_hermes_url=a.pyth_hermes_url,
         )
 
     @property
@@ -324,6 +334,10 @@ class Attestor:
             self._call_bridge({"action": "getPerformance", "strategyId": str(self.strategy_id)})
 
         committed_at = int(time.time())
+        # Neutral price witness (optional, unsigned annotation): fetched at
+        # commit time, before the bundle is built. Never fatal (see
+        # attest/witness.py), so it cannot delay or break the chain path.
+        witness = fetch_witness(self.cfg.pyth_price_id, self.cfg.pyth_hermes_url)
         typed = evidence_typed_data(
             chain_id=self._bundle_chain_id(),
             contract=self._bundle_contract(),
@@ -362,6 +376,10 @@ class Attestor:
                 for i, (r, h) in enumerate(zip(ledger.receipts, hashes, strict=False))
             ],
         }
+        if witness is not None:
+            # Additive top-level annotation only: the EIP-712 message and the
+            # signature above stay byte-identical with or without a witness.
+            bundle["witness"] = witness
 
         # Per-run evidence: the run copy under out/<run_id>/ for local audit,
         # the stable copy under the evidence root for the onchain URI. Runs

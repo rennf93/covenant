@@ -84,6 +84,9 @@ cd indexer
 RPC_URL=https://sepolia-rollup.arbitrum.io/rpc CONTRACT_ADDRESS=0x… \
 CHAIN=arbitrum-sepolia START_BLOCK=<deploy block> pnpm start
 
+# 2.5 settle pending epochs whose challenge window passed (dry-run first)
+pnpm --filter @covenant/sdk run finalize          # add -- --execute to send
+
 # 3. leaderboard
 cd web
 INDEXER_URL=http://127.0.0.1:8787 \
@@ -126,27 +129,53 @@ docker compose --profile agent up            # + the vouch agent, attested shado
 
 ## Status
 
-- Contract: 11/11 tests green, `wasm32` release build verified, ABI exported to
-  `contracts/covenant/abi/ICovenant.sol`. Not yet deployed.
-- merkle-core: 6/6 tests, including the cross-language fixture suite.
-- SDK: 8/8 tests. Merkle semantics are fixture-conformed between TS and Rust.
-- Indexer: 5/5 tests.
-- Web: `next build` passes.
-- Vouch: 10/10 attestation tests; receipts and Merkle roots fixture-conformed
-  to the SDK (the same `merkle.json` the Rust contract side validates against).
+- Contract: 28/28 tests green (full lifecycle, regressions for the phantom-finalize
+  and ordering bugs, admin flows, resolver deadline), clippy `-D warnings` + fmt in
+  CI, fixed-seed property tests on merkle-core, wasm32 release build verified, ABI
+  exported to `contracts/covenant/abi/ICovenant.sol` with a CI sync check. Not yet
+  deployed.
+- merkle-core: 6/6 tests plus the cross-language fixture suite, with a fixture
+  freshness check in CI.
+- SDK: 19/19 tests. Operator/challenger/resolver/admin clients with receipt
+  waiting, USDG approve helpers, custom-error decoding, and `pnpm finalize`
+  (`sdk/scripts/finalize-due.ts`, dry-run by default) so pending epochs settle and
+  onchain PnL accrues.
+- Indexer: 32/32 tests. Block timestamps, RPC retry, reorg rollback, atomic
+  state persistence with resume, 7d/30d/all windows, pagination, SSE `/stream`.
+- Web: `next build` passes. Leaderboard with time-window tabs and a LIVE pill
+  (SSE), per-epoch challenge flow from the browser (window.ethereum + viem, no
+  wallet SDK), resolver controls, and an evidence drawer that walks Merkle proofs
+  and verifies the EIP-712 bundle signature against the onchain owner.
+- Vouch: 97/97 tests (ruff, near-strict mypy, import-linter clean). Real venue
+  fills become receipts; commits retry without breaking epoch sequence; register
+  (`run_register.py`) and auto-finalize wired; evidence bundles v2 carry an
+  EIP-712 operator signature (typed over strategy, epoch, equity, net flow,
+  trades root) and optionally publish to IPFS (`COVENANT_IPFS_API`). Honest
+  limits: committed equity is still operator-reported; the signature proves who
+  said it and when, not that it is true - the challenge game exists for that.
 
 ## Judging criteria mapping
 
-- **Contract quality.** 11/11 mock-VM unit tests covering the full lifecycle,
-  CEI ordering (reads, writes, token interactions last), exported ABI
-  (`contracts/covenant/abi/ICovenant.sol`), pinned Rust toolchain, and
-  `cargo stylus verify` in the runbook.
+- **Contract quality.** 28/28 mock-VM tests covering the full lifecycle plus
+  regressions for audited bugs (phantom-epoch finalize, out-of-order
+  finalization), sequential accountability (an unsettled epoch blocks later
+  commits), a resolver deadline so challenged stakes cannot freeze forever,
+  two-step admin transfer with events on every admin action, full pause
+  coverage, checks-effects-interactions ordering, property tests on
+  merkle-core, exported ABI with a CI sync check, clippy `-D warnings` and
+  rustfmt gates, and `cargo stylus verify` in the runbook.
 - **Product-market fit.** Buyers of copy-trading signals, prop-firm
   candidates, and capital allocators who currently must trust screenshots.
-  Non-custodial, so strategies can stay CEX-native.
+  Non-custodial, so strategies can stay CEX-native. The challenge game is
+  participatory: anyone can stake a challenge from the browser in two
+  clicks, and a finalizer settles epochs so the onchain leaderboard accrues
+  real, finalized returns.
 - **Innovation.** Attestation instead of custody: the operator keeps their
   keys and their venue; the chain holds sequential commitments, an economic
   challenge game, and position-free Merkle proofs over trade receipts.
+  Evidence bundles v2 are EIP-712 signed by the operator and carry an
+  optional neutral Pyth price witness, so a reader can verify who published
+  what, when, and cross-check it against an independent feed.
   Custodial vaults (dHEDGE, Enzyme) solve verification by changing the
   product; Covenant does not take custody.
 - **Real problem.** Screenshot-PnL fraud: offchain leaderboards are trust-me

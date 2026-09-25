@@ -2159,6 +2159,20 @@ tr.panel-row > td:first-child {
   text-shadow: 0 0 24px rgba(230, 180, 80, 0.35);
 }
 
+/* ---------- pyth witness annotation (unsigned, optional) ---------- */
+
+.ev-witness {
+  margin-top: 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.75rem 1rem 0.85rem;
+}
+
+.ev-witness .honest-line {
+  margin-top: 0.55rem;
+}
+
 /* ---------- responsive: inline panel + drawer on stacked tables ---------- */
 
 @media (max-width: 768px) {

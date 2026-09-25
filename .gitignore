@@ -15,3 +15,5 @@ __pycache__/
 
 HANDOFF.md
 coverage/tmp/
+
+.coverage

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EvidenceBundleView } from "./evidence";
-import { parseEvidenceBundle, verifyBundleReceipts, verifyBundleSignature, type EvidenceBundle } from "../lib/evidence";
+import { formatWitnessLine, parseEvidenceBundle, verifyBundleReceipts, verifyBundleSignature, type EvidenceBundle } from "../lib/evidence";
 import { readStrategyOwner } from "../lib/chain";
 
 /**
@@ -40,6 +40,9 @@ export default function EvidenceVerify() {
             ? "expected signer: the bundle's own signer field (chain read unavailable)"
             : "expected signer: none available",
       ];
+      if (bundle.witness !== null) {
+        lines.push(`witness: ${formatWitnessLine(bundle.witness)} (unsigned cross-check)`);
+      }
       setChecks({ ok, line: lines.join("\n") });
     })();
     return () => {
