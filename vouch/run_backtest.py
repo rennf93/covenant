@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""jev backtester: real historical candles through the exact live path.
+"""vouch backtester: real historical candles through the exact live path.
 
     .venv/bin/python run_backtest.py --minutes 4320 --epoch-len 120 --tag sept3d
     .venv/bin/python run_backtest.py --minutes 1440 --fee-bps 0 --tag maker
@@ -13,23 +13,23 @@ import argparse
 import json
 import os
 
-from jev.backtest import run_backtest
+from vouch.backtest import run_backtest
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="jev backtest over real 1m candles")
+    ap = argparse.ArgumentParser(description="vouch backtest over real 1m candles")
     ap.add_argument("--product", type=str, default="SOL-USD")
     ap.add_argument("--minutes", type=int, default=1440, help="history length, 1m bars")
     ap.add_argument("--epoch-len", type=int, default=60, help="bars between System-2 rewrites (0 = never)")
     ap.add_argument("--cash", type=float, default=1000.0)
     ap.add_argument("--warmup", type=int, default=60, help="bars burned to fill 60m windows")
     ap.add_argument("--fee-bps", type=float, default=None,
-                    help="per-side fee override (default: JEV_FEE_BPS env or 60)")
+                    help="per-side fee override (default: VOUCH_FEE_BPS env or 60)")
     ap.add_argument("--tag", type=str, default=None)
     ap.add_argument("--no-s2", action="store_true", help="skip System-2 rewrites")
     a = ap.parse_args()
 
     if a.fee_bps is not None:
-        os.environ["JEV_FEE_BPS"] = str(a.fee_bps)
+        os.environ["VOUCH_FEE_BPS"] = str(a.fee_bps)
     summary = run_backtest(product=a.product, minutes=a.minutes, cash=a.cash,
                            epoch_len=a.epoch_len, tag=a.tag, warmup=a.warmup,
                            use_s2=not a.no_s2)

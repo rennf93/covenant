@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""jev analysis: does laya predict anything? Measure before trading.
+"""vouch analysis: does laya predict anything? Measure before trading.
 
     .venv/bin/python run_analysis.py --glob "out/backtest-*/decisions.jsonl"
     .venv/bin/python run_analysis.py --glob "out/live-*/decisions.jsonl" \
@@ -13,7 +13,7 @@ entries on expected value over round-trip costs.
 import argparse
 import json
 
-from jev.analysis import add_forward_returns, load_decisions, report
+from vouch.analysis import add_forward_returns, load_decisions, report
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="measure laya's predictive power")

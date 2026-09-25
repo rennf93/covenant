@@ -7,5 +7,5 @@ target/
 __pycache__/
 *.pyc
 .venv/
-operator/out/
-operator/evidence/
+vouch/out/
+vouch/evidence/

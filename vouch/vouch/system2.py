@@ -81,8 +81,8 @@ def rewrite(rules: Rules, epoch: dict, window: list[dict] | None = None) -> tupl
     Falls back to the heuristic backend on any LLM error, and to the previous
     rules entirely if the proposal fails rails or lacks evidence."""
     window = list(window or []) + ([epoch] if epoch not in (window or []) else [])
-    base_url = os.environ.get("JEV_S2_BASE_URL", "")
-    model = os.environ.get("JEV_S2_MODEL", "")
+    base_url = os.environ.get("VOUCH_S2_BASE_URL", "")
+    model = os.environ.get("VOUCH_S2_MODEL", "")
     proposal: dict = {}
     backend = "heuristic"
 
@@ -97,7 +97,7 @@ def rewrite(rules: Rules, epoch: dict, window: list[dict] | None = None) -> tupl
         try:
             r = httpx.post(
                 f"{base_url.rstrip('/')}/chat/completions",
-                headers={"Authorization": f"Bearer {os.environ.get('JEV_S2_KEY', 'none')}"},
+                headers={"Authorization": f"Bearer {os.environ.get('VOUCH_S2_KEY', 'none')}"},
                 json={
                     "model": model,
                     # qwen-family chat template reasons by default; the rewrite

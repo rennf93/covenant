@@ -49,6 +49,18 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   return body.rows;
 }
 
+/** True when the indexer is the synthetic demo server (no contract deployed). */
+export async function fetchDemoFlag(): Promise<boolean> {
+  try {
+    const res = await fetch(`${indexerUrl()}/strategies`, { next: { revalidate: 15 } });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { demo?: boolean };
+    return body.demo === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchStrategy(id: string): Promise<StrategyDetail> {
   const res = await fetch(`${indexerUrl()}/strategies/${encodeURIComponent(id)}`, {
     next: { revalidate: 15 },

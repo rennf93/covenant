@@ -1,4 +1,4 @@
-"""Conformance and behavior tests for operator/attest (stdlib unittest only).
+"""Conformance and behavior tests for vouch/attest (stdlib unittest only).
 
 Cross-language conformance: the receipt and merkle fixtures are generated
 from the TypeScript SDK (tests/fixtures/receipts.json) and shared with the
@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-# The test module lives in operator/tests; attest/ and jev/ live in operator/.
+# The test module lives in vouch/tests; attest/ and vouch/ live in vouch/.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from attest import EpochLedger, LedgerError, receipts  # noqa: E402

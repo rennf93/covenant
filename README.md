@@ -21,6 +21,15 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the protocol spec and trust model.
 | `sdk/` | TypeScript SDK: receipt canonicalization, Merkle trees, epoch builder, RPC clients. |
 | `indexer/` | Event-sourced indexer + JSON API (`/strategies`, `/strategies/:id`, `/health`). |
 | `web/` | Next.js leaderboard + trustless receipt verifier (reads the chain from the browser). |
+| `vouch/` | The flagship strategy: a two-model trading agent (fast System-1 deciding per tick, local LLM System-2 rewriting its rules between epochs, hard risk rails neither model can touch) that attests every fill onchain as a canonical receipt. Ships with its own dashboard (`python run_ui.py`). |
+
+## Docker
+
+```bash
+RPC_URL=https://sepolia-rollup.arbitrum.io/rpc CONTRACT_ADDRESS=0x... \
+  docker compose up --build                 # indexer + leaderboard
+docker compose --profile agent up            # + the vouch agent, attested shadow mode
+```
 
 ## Status
 
@@ -29,6 +38,8 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the protocol spec and trust model.
 - SDK: 8/8 tests. Merkle semantics are fixture-conformed between TS and Rust.
 - Indexer: 5/5 tests.
 - Web: `next build` passes.
+- Vouch: 10/10 attestation tests; receipts and Merkle roots fixture-conformed
+  to the SDK (the same `merkle.json` the Rust contract side validates against).
 
 ## Development
 

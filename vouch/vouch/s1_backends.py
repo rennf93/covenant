@@ -6,12 +6,12 @@ Three interchangeable providers, chosen from the dashboard (or env):
                 and loads the model weights, slow cold start).
 - "server":     a laya HTTP server over the /v1/systemone protocol
                 (what `laya.serve` speaks): POST {state, questions} ->
-                {model, answers, usage, routing}. Set JEV_S1_URL, e.g.
-                http://127.0.0.1:9989. Optional bearer key (JEV_S1_API_KEY)
+                {model, answers, usage, routing}. Set VOUCH_S1_URL, e.g.
+                http://127.0.0.1:9989. Optional bearer key (VOUCH_S1_API_KEY)
                 for servers started with LAYA_API_KEY. A cold server can
                 take a while on its first predict; that is normal.
 - "openrouter": any OpenAI-compatible chat endpoint via OpenRouter with an
-                API key (JEV_S1_API_KEY, JEV_S1_MODEL). The typed questions
+                API key (VOUCH_S1_API_KEY, VOUCH_S1_MODEL). The typed questions
                 are serialized into one prompt and the JSON reply is parsed
                 back into the same answers shape, so everything downstream
                 (rails, analysis, SFT logs) is provider-agnostic.
@@ -191,9 +191,9 @@ class OpenRouterBackend:
     def __init__(self, api_key: str, model: str, base_url: str = OPENROUTER_BASE,
                  timeout: float = 60.0):
         if not api_key:
-            raise BackendError("openrouter provider needs an API key (JEV_S1_API_KEY)")
+            raise BackendError("openrouter provider needs an API key (VOUCH_S1_API_KEY)")
         if not model:
-            raise BackendError("openrouter provider needs a model id (JEV_S1_MODEL)")
+            raise BackendError("openrouter provider needs a model id (VOUCH_S1_MODEL)")
         self.api_key = api_key
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -235,22 +235,22 @@ class OpenRouterBackend:
 
 def make_s1_backend() -> object:
     """Build the System-1 backend from env (set by the dashboard or by hand):
-    JEV_S1_PROVIDER=local|server|openrouter (default: local)
-    JEV_S1_URL (server), JEV_S1_API_KEY (server bearer / openrouter key),
-    JEV_S1_MODEL (openrouter), JEV_S1_BASE_URL (openrouter-compatible override).
+    VOUCH_S1_PROVIDER=local|server|openrouter (default: local)
+    VOUCH_S1_URL (server), VOUCH_S1_API_KEY (server bearer / openrouter key),
+    VOUCH_S1_MODEL (openrouter), VOUCH_S1_BASE_URL (openrouter-compatible override).
     """
-    provider = os.environ.get("JEV_S1_PROVIDER", "local").lower()
+    provider = os.environ.get("VOUCH_S1_PROVIDER", "local").lower()
     if provider == "local":
         return LocalLayaBackend()
     if provider == "server":
-        url = os.environ.get("JEV_S1_URL", "")
+        url = os.environ.get("VOUCH_S1_URL", "")
         if not url:
-            raise BackendError("provider 'server' needs JEV_S1_URL, e.g. http://127.0.0.1:9989")
-        return LayaServerBackend(url, api_key=os.environ.get("JEV_S1_API_KEY", ""))
+            raise BackendError("provider 'server' needs VOUCH_S1_URL, e.g. http://127.0.0.1:9989")
+        return LayaServerBackend(url, api_key=os.environ.get("VOUCH_S1_API_KEY", ""))
     if provider == "openrouter":
         return OpenRouterBackend(
-            api_key=os.environ.get("JEV_S1_API_KEY", ""),
-            model=os.environ.get("JEV_S1_MODEL", ""),
-            base_url=os.environ.get("JEV_S1_BASE_URL", OPENROUTER_BASE),
+            api_key=os.environ.get("VOUCH_S1_API_KEY", ""),
+            model=os.environ.get("VOUCH_S1_MODEL", ""),
+            base_url=os.environ.get("VOUCH_S1_BASE_URL", OPENROUTER_BASE),
         )
-    raise BackendError(f"unknown JEV_S1_PROVIDER: {provider}")
+    raise BackendError(f"unknown VOUCH_S1_PROVIDER: {provider}")

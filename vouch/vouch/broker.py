@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Defaults for a small retail spot account. Overrides: JEV_FEE_BPS env or
+# Defaults for a small retail spot account. Overrides: VOUCH_FEE_BPS env or
 # constructor args. 60 bps per side = 1.2% round trip; at a 2%/4% bracket
 # that needs a >53% win rate just to break even. Know your costs.
 DEFAULT_FEE_BPS = 60.0
@@ -51,7 +51,7 @@ class Broker:
     def __post_init__(self) -> None:
         import os
 
-        self.fee = float(os.environ.get("JEV_FEE_BPS", DEFAULT_FEE_BPS)) / 10000.0
+        self.fee = float(os.environ.get("VOUCH_FEE_BPS", DEFAULT_FEE_BPS)) / 10000.0
         self.slippage = DEFAULT_SLIPPAGE
         self.cash = self.starting_cash
         self.peak_equity = self.starting_cash

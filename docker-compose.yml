@@ -1,0 +1,53 @@
+# Proven stack: indexer + leaderboard. The vouch agent is a profile service.
+#
+#   RPC_URL / CONTRACT_ADDRESS required for a real indexer. Without a deployed
+#   contract there is nothing to index; see contracts/proven/README.md for the
+#   deployment runbook.
+#
+#   docker compose up --build          # indexer + web
+#   docker compose --profile agent up  # + the vouch agent (attested shadow run)
+
+services:
+  indexer:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    environment:
+      RPC_URL: ${RPC_URL:?set RPC_URL to an Arbitrum RPC endpoint}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:?set CONTRACT_ADDRESS to the deployed Proven proxy}
+      CHAIN: ${CHAIN:-arbitrum-sepolia}
+      PORT: 8787
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    environment:
+      INDEXER_URL: http://indexer:8787
+    ports:
+      - "3000:3000"
+    depends_on:
+      - indexer
+    restart: unless-stopped
+
+  vouch:
+    build:
+      context: .
+      dockerfile: vouch/Dockerfile
+    profiles: ["agent"]
+    environment:
+      PROVEN_ATTEST: ${PROVEN_ATTEST:-1}
+      PROVEN_STRATEGY_NAME: ${PROVEN_STRATEGY_NAME:-vouch-sol}
+      PROVEN_RPC_URL: ${RPC_URL:-}
+      PROVEN_PRIVATE_KEY: ${PROVEN_PRIVATE_KEY:-}
+      PROVEN_CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-}
+      VOUCH_S1_PROVIDER: local
+    volumes:
+      - vouch-out:/app/out
+    restart: unless-stopped
+
+volumes:
+  vouch-out:

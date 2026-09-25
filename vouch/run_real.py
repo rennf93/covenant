@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""jev REAL mode. This places actual orders with actual money.
+"""vouch REAL mode. This places actual orders with actual money.
 
 The flip from shadow to live is one environment variable:
 
-    JEV_VENUE=coinbase  JEV_CB_KEY_NAME=...  JEV_CB_PRIVATE_KEY=... \
+    VOUCH_VENUE=coinbase  VOUCH_CB_KEY_NAME=...  VOUCH_CB_PRIVATE_KEY=... \
         .venv/bin/python run_real.py --max-usd 10 --confirm-real
 
-Without JEV_VENUE=coinbase it refuses to run (that is the safety interlock;
+Without VOUCH_VENUE=coinbase it refuses to run (that is the safety interlock;
 a typo cannot spend money). Guardrails:
 - --max-usd hard exposure cap enforced inside the venue adapter per order;
 - same decision rails as shadow (stop/take/trail, cooldown, 20% drawdown kill);
@@ -28,13 +28,13 @@ from pathlib import Path
 
 import httpx
 
-from jev.broker import Position, stop_level_for
-from jev.candles import (BarAggregator, inject_volume, latest_candle_volume,
+from vouch.broker import Position, stop_level_for
+from vouch.candles import (BarAggregator, inject_volume, latest_candle_volume,
                          state_snapshot, tick_from_bars)
-from jev.execution import PaperVenue, VenueError, make_venue
-from jev.market import Tick
-from jev.rules import Rules
-from jev.system1 import System1
+from vouch.execution import PaperVenue, VenueError, make_venue
+from vouch.market import Tick
+from vouch.rules import Rules
+from vouch.system1 import System1
 
 
 class RealBook:
@@ -57,7 +57,7 @@ def _fav(position: Position, price: float) -> float:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="jev REAL trading - places actual orders")
+    ap = argparse.ArgumentParser(description="vouch REAL trading - places actual orders")
     ap.add_argument("--minutes", type=int, default=480)
     ap.add_argument("--interval", type=int, default=20)
     ap.add_argument("--epoch-minutes", type=int, default=60)
@@ -68,15 +68,15 @@ def main() -> None:
     a = ap.parse_args()
 
     import os
-    if os.environ.get("JEV_VENUE", "paper") == "coinbase" and not a.confirm_real:
+    if os.environ.get("VOUCH_VENUE", "paper") == "coinbase" and not a.confirm_real:
         raise SystemExit("Refusing: pass --confirm-real to acknowledge real orders with real money.")
     venue = make_venue(max_usd=a.max_usd)
-    if isinstance(venue, PaperVenue) and os.environ.get("JEV_VENUE") != "paper":
+    if isinstance(venue, PaperVenue) and os.environ.get("VOUCH_VENUE") != "paper":
         raise SystemExit("Venue fell back to paper; check your env vars.")
 
     out_dir = Path("out") / f"real-{a.seed}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    rules = Rules.from_env()  # honors JEV_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
     s1 = System1()
     client = httpx.Client()
     agg = BarAggregator()

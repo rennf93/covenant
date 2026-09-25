@@ -3,7 +3,7 @@ with System-2 rewriting rules between epochs. Everything saved to out/.
 
 Usage:
     python run.py --ticks 300 --epoch 50 --seed 42
-    JEV_S2_BASE_URL=http://192.168.50.111:11434/v1 JEV_S2_MODEL=qwen2.5:3b python run.py
+    VOUCH_S2_BASE_URL=http://192.168.50.111:11434/v1 VOUCH_S2_MODEL=qwen2.5:3b python run.py
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def run_session(ticks: int = 300, epoch_len: int = 50, seed: int = 42,
     out_dir = Path(out)
     market = Market(seed=seed)
     broker = Broker(starting_cash=starting_cash, max_drawdown_pct=0.20)
-    rules = Rules.from_env()  # honors JEV_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
     broker.cooldown_ticks = rules.cooldown_ticks
     s1 = System1()
     rules_history: list[dict] = [{"tick": 0, "rules": rules.to_dict(), "s2": None}]

@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/dist
+**/__pycache__
+**/target
+**/out
+**/evidence
+**/.venv
+*.log
+.DS_Store

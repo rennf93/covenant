@@ -166,7 +166,7 @@ applied/rejected record for later attribution analysis.
 - The decision on what to build next should be made by the IC numbers
   from run_analysis.py, not by feel.
 
-## Proven attestation (operator/attest)
+## Proven attestation (vouch/attest)
 
 The `attest/` package turns every booked fill into a canonical Proven
 receipt (the byte-exact Python mirror of `sdk/src/receipt.ts`: static ABI

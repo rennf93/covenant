@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>jev dashboard</title>
+<title>vouch dashboard</title>
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --panel2: #1c2129; --border: #2d333b;
@@ -72,7 +72,7 @@
 </head>
 <body>
 <header>
-  <h1>jev</h1><span class="live" id="clock"></span>
+  <h1>vouch</h1><span class="live" id="clock"></span>
   <span class="spacer"></span>
   <span class="kv" id="headfee"></span>
   <button onclick="openSettings()">Settings</button>
@@ -354,7 +354,7 @@ function renderVenues() {
   if (v) $("venuedocs").textContent = v.docs + (v.live && !v.configured ? " MISSING: " + v.missing_env.join(", ") : "");
   $("realbanner").innerHTML = state.real_mode_allowed ? "" :
     `<div class="banner warn">Real-money runs are blocked from this UI by default (by design). Start run_real.py by hand,
-     or set JEV_UI_ALLOW_REAL=1 in the server environment if you know what that means.</div>`;
+     or set VOUCH_UI_ALLOW_REAL=1 in the server environment if you know what that means.</div>`;
 }
 
 async function refresh() {

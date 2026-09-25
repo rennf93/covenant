@@ -1,12 +1,12 @@
-"""jev dashboard API: see what's running, configure it, start/stop/restart.
+"""vouch dashboard API: see what's running, configure it, start/stop/restart.
 
 Local-only by design: binds 127.0.0.1 unless you explicitly pass --host.
 Every runner (sim/shadow/backtest/real) is spawned as a subprocess with
-the settings from out/ui/config.json injected via JEV_RULES / JEV_FEE_BPS /
-JEV_VENUE, so the UI never edits strategy code or env files directly.
+the settings from out/ui/config.json injected via VOUCH_RULES / VOUCH_FEE_BPS /
+VOUCH_VENUE, so the UI never edits strategy code or env files directly.
 
 REAL MODE IS GATED: the API refuses to start a real-money run unless
-JEV_UI_ALLOW_REAL=1 is set in the SERVER's environment AND the request
+VOUCH_UI_ALLOW_REAL=1 is set in the SERVER's environment AND the request
 carries confirm_real=true AND the chosen venue is configured. A web UI
 click is not a human running run_real.py by hand; treat this as a
 convenience for someone who has already read README.md.
@@ -28,8 +28,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from jev.execution import available_venues
-from jev.rules import RAILS, Rules, validate
+from vouch.execution import available_venues
+from vouch.rules import RAILS, Rules, validate
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out"
@@ -88,7 +88,7 @@ def _save_config(cfg: dict) -> None:
     CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
 
 
-app = FastAPI(title="jev dashboard")
+app = FastAPI(title="vouch dashboard")
 
 
 # --- process manager --------------------------------------------------------
@@ -172,24 +172,24 @@ def _build_run(mode: str, params: dict, cfg: dict) -> tuple[str, list[str], dict
     py = sys.executable
     env = os.environ.copy()
     rules = dict(cfg["rules"])
-    env["JEV_RULES"] = json.dumps(rules)
-    env["JEV_FEE_BPS"] = str(params.get("fee_bps", cfg["fee_bps"]))
-    env["JEV_VENUE"] = str(params.get("venue", cfg["venue"]))
-    if env["JEV_VENUE"] == "coinbase":
-        env.setdefault("JEV_CB_PRODUCT", str(params.get("product", cfg["product"])))
+    env["VOUCH_RULES"] = json.dumps(rules)
+    env["VOUCH_FEE_BPS"] = str(params.get("fee_bps", cfg["fee_bps"]))
+    env["VOUCH_VENUE"] = str(params.get("venue", cfg["venue"]))
+    if env["VOUCH_VENUE"] == "coinbase":
+        env.setdefault("VOUCH_CB_PRODUCT", str(params.get("product", cfg["product"])))
 
     # System-1 provider (local laya | laya server | openrouter) and the
     # System-2 rewriter endpoint, straight from dashboard settings.
     s1 = cfg["s1"]
-    env["JEV_S1_PROVIDER"] = s1["provider"]
-    env["JEV_S1_URL"] = s1["url"]
-    env["JEV_S1_API_KEY"] = s1["api_key"]
-    env["JEV_S1_MODEL"] = s1["model"]
+    env["VOUCH_S1_PROVIDER"] = s1["provider"]
+    env["VOUCH_S1_URL"] = s1["url"]
+    env["VOUCH_S1_API_KEY"] = s1["api_key"]
+    env["VOUCH_S1_MODEL"] = s1["model"]
     s2 = cfg["s2"]
     if s2["base_url"]:
-        env["JEV_S2_BASE_URL"] = s2["base_url"]
-        env["JEV_S2_MODEL"] = s2["model"]
-        env["JEV_S2_KEY"] = s2["api_key"]
+        env["VOUCH_S2_BASE_URL"] = s2["base_url"]
+        env["VOUCH_S2_MODEL"] = s2["model"]
+        env["VOUCH_S2_KEY"] = s2["api_key"]
 
     d = cfg["defaults"].get(mode, {})
     if mode == "sim":
@@ -249,7 +249,7 @@ def overview():
             })
     return {"config": cfg, "venues": available_venues(), "rails": {k: list(v) for k, v in RAILS.items()},
             "active": active, "sessions": sessions[:40],
-            "real_mode_allowed": os.environ.get("JEV_UI_ALLOW_REAL") == "1"}
+            "real_mode_allowed": os.environ.get("VOUCH_UI_ALLOW_REAL") == "1"}
 
 
 def _read_json(path: Path):
@@ -295,9 +295,9 @@ def start_run(req: RunRequest):
     cfg = _load_config()
     params = dict(req.params)
     if req.mode == "real":
-        if os.environ.get("JEV_UI_ALLOW_REAL") != "1":
+        if os.environ.get("VOUCH_UI_ALLOW_REAL") != "1":
             raise HTTPException(403, "Real mode is blocked from the UI. Start run_real.py by hand, "
-                                     "or set JEV_UI_ALLOW_REAL=1 in the SERVER environment if you accept that.")
+                                     "or set VOUCH_UI_ALLOW_REAL=1 in the SERVER environment if you accept that.")
         if not req.confirm_real:
             raise HTTPException(403, "real mode requires confirm_real=true")
         venue = str(params.get("venue", cfg["venue"]))
@@ -381,7 +381,7 @@ def s1_health():
     cfg = _load_config()
     if cfg["s1"]["provider"] != "server":
         return {"provider": cfg["s1"]["provider"], "probe": "n/a (not a server provider)"}
-    from jev.s1_backends import LayaServerBackend
+    from vouch.s1_backends import LayaServerBackend
     b = LayaServerBackend(cfg["s1"]["url"], api_key=cfg["s1"]["api_key"])
     h = b.health()
     return {"provider": "server", "url": cfg["s1"]["url"], "probe": h or "unreachable"}

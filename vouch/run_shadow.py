@@ -28,14 +28,14 @@ from pathlib import Path
 import httpx
 
 from attest import AttestationConfig, Attestor, receipts
-from jev.broker import Broker
-from jev.candles import (BarAggregator, inject_volume, latest_candle_volume,
+from vouch.broker import Broker
+from vouch.candles import (BarAggregator, inject_volume, latest_candle_volume,
                          state_snapshot, tick_from_bars)
-from jev.execution import make_venue
-from jev.rules import Rules
-from jev.system1 import System1
-from jev.system2 import rewrite
-from jev.wsfeed import WsPriceFeed
+from vouch.execution import make_venue
+from vouch.rules import Rules
+from vouch.system1 import System1
+from vouch.system2 import rewrite
+from vouch.wsfeed import WsPriceFeed
 
 COINBASE_SPOT = "https://api.coinbase.com/v2/prices/SOL-USD/spot"
 
@@ -47,7 +47,7 @@ def fetch_price(client: httpx.Client) -> float:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="jev shadow mode: live prices, paper fills")
+    ap = argparse.ArgumentParser(description="vouch shadow mode: live prices, paper fills")
     ap.add_argument("--minutes", type=int, default=60)
     ap.add_argument("--forever", action="store_true",
                     help="run until stopped (daemon mode; --minutes is ignored)")
@@ -66,7 +66,7 @@ def main() -> None:
     out_dir = Path("out") / f"live-{a.seed}"
     out_dir.mkdir(parents=True, exist_ok=True)
     broker = Broker(starting_cash=a.cash, max_drawdown_pct=0.20)
-    rules = Rules.from_env()  # honors JEV_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
     s1 = System1()
     client = httpx.Client()
     agg = BarAggregator()
@@ -93,7 +93,7 @@ def main() -> None:
     if cfg.enabled:
         venue = make_venue()  # paper by default; class + instrument go into receipts
         strategy_id = int(os.environ.get("PROVEN_STRATEGY_ID", "0"))
-        strategy_name = os.environ.get("PROVEN_STRATEGY_NAME", "jev-laya-sol")
+        strategy_name = os.environ.get("PROVEN_STRATEGY_NAME", "vouch-sol")
         attestor = Attestor(cfg, run_dir=out_dir, strategy_id=strategy_id,
                             venue=venue.receipt_venue, instrument=venue.instrument)
         ledger = attestor.start_epoch(epoch_index)

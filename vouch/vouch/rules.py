@@ -41,15 +41,15 @@ class Rules:
 
     @classmethod
     def from_env(cls) -> "Rules":
-        """Rules defaults, overridden by JEV_RULES (JSON dict) when present and
-        valid. The UI sets JEV_RULES when launching runners, which is how
+        """Rules defaults, overridden by VOUCH_RULES (JSON dict) when present and
+        valid. The UI sets VOUCH_RULES when launching runners, which is how
         dashboard settings reach the actual loop. Invalid JSON or rail
         violations are ignored silently: defaults are always safe."""
         import json as _json
         import os as _os
 
         rules = cls()
-        raw = _os.environ.get("JEV_RULES", "")
+        raw = _os.environ.get("VOUCH_RULES", "")
         if raw:
             try:
                 prop = _json.loads(raw)

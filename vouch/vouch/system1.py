@@ -13,7 +13,7 @@ Two modes, chosen by whether a position is open:
   fire independently; this is laya's chance to leave on deterioration
   before the stop is hit. Gated on rules.exit_pressure_min.
 
-If a calibration file exists (see jev/calibration.py) and
+If a calibration file exists (see vouch/calibration.py) and
 rules.min_edge_pct > 0, entries additionally require calibrated expected
 value to clear round-trip costs. No calibration = gate off, behavior as before.
 """
@@ -34,11 +34,11 @@ DEFAULT_CALIBRATION = Path("out/calibration.json")
 
 class System1:
     def __init__(self, router=None, calibration_path: Path | str | None = None):
-        # The provider is chosen by env (dashboard -> JEV_S1_*): local laya
+        # The provider is chosen by env (dashboard -> VOUCH_S1_*): local laya
         # library, a laya HTTP server, or an OpenAI-compatible endpoint via
         # OpenRouter. All return the same Router.predict shape.
         self.router = router or make_s1_backend()
-        path = calibration_path or os.environ.get("JEV_CALIBRATION", DEFAULT_CALIBRATION)
+        path = calibration_path or os.environ.get("VOUCH_CALIBRATION", DEFAULT_CALIBRATION)
         self.calibration = Calibrator.load(Path(path))
 
     def decide(self, tick: Tick, broker: Broker, rules: Rules, recent: list[str]) -> dict:

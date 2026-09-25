@@ -4,7 +4,7 @@ Reads decisions.jsonl files (from live, shadow, or backtest runs), computes
 forward returns over H decisions, and reports the rank information
 coefficient (Spearman) of each laya output against those forward returns,
 plus win-rate-style diagnostics by signal bucket. Also fits the
-calibration model (jev/calibration.py) and writes out/calibration.json.
+calibration model (vouch/calibration.py) and writes out/calibration.json.
 
 Interpretation: |IC| < 0.02 on a few thousand samples is noise. If every
 feature sits near zero, no gate tuning will make this profitable; go

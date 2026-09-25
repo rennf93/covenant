@@ -20,9 +20,9 @@ Hard guardrails that live in THIS file, not in prompts:
   forbids it); a real run is started by a human running run_real.py by hand.
 
 Required env for Coinbase:
-    JEV_CB_KEY_NAME     CDP API key name (organizations/.../apiKeys/...)
-    JEV_CB_PRIVATE_KEY  CDP API private key (base64 EC key)
-    JEV_CB_PRODUCT      tradable product, default SOL-USD
+    VOUCH_CB_KEY_NAME     CDP API key name (organizations/.../apiKeys/...)
+    VOUCH_CB_PRIVATE_KEY  CDP API private key (base64 EC key)
+    VOUCH_CB_PRODUCT      tradable product, default SOL-USD
 """
 
 from __future__ import annotations
@@ -81,10 +81,10 @@ class CoinbaseVenue:
     receipt_venue = VENUE_COINBASE
 
     def __init__(self, product: str = "SOL-USD", max_usd: float = 10.0):
-        self.key_name = os.environ.get("JEV_CB_KEY_NAME", "")
-        self.private_b64 = os.environ.get("JEV_CB_PRIVATE_KEY", "")
+        self.key_name = os.environ.get("VOUCH_CB_KEY_NAME", "")
+        self.private_b64 = os.environ.get("VOUCH_CB_PRIVATE_KEY", "")
         if not self.key_name or not self.private_b64:
-            raise VenueError("Coinbase venue requires JEV_CB_KEY_NAME and JEV_CB_PRIVATE_KEY")
+            raise VenueError("Coinbase venue requires VOUCH_CB_KEY_NAME and VOUCH_CB_PRIVATE_KEY")
         self.product = product
         self.instrument = self.product
         self.max_usd = max_usd
@@ -182,7 +182,7 @@ class ArbPaperVenue:
     upgrade path in docs/DESIGN.md section 3.
 
     Fee model is the AMM taker cost: pool fee plus price impact for a
-    retail-size swap, default 30 bps via JEV_ARB_FEE_BPS.
+    retail-size swap, default 30 bps via VOUCH_ARB_FEE_BPS.
     """
 
     venue_id = "arb-paper"
@@ -191,7 +191,7 @@ class ArbPaperVenue:
 
     def __init__(self, product: str = "SOL/USDC"):
         self.product = product
-        self.fee = float(os.environ.get("JEV_ARB_FEE_BPS", "30")) / 10000.0
+        self.fee = float(os.environ.get("VOUCH_ARB_FEE_BPS", "30")) / 10000.0
         self.slippage = 0.0005
         self._fills: dict[str, dict] = {}
 
@@ -221,12 +221,12 @@ class ArbPaperVenue:
 
 
 def make_venue(max_usd: float = 10.0):
-    """The flip switch. JEV_VENUE=coinbase + keys = live; JEV_VENUE=arb-paper
+    """The flip switch. VOUCH_VENUE=coinbase + keys = live; VOUCH_VENUE=arb-paper
     = live prices with paper fills; anything else = paper."""
-    venue = os.environ.get("JEV_VENUE", "paper").lower()
+    venue = os.environ.get("VOUCH_VENUE", "paper").lower()
     if venue in VENUES and venue != "paper":
         spec = VENUES[venue]
-        return spec["factory"](os.environ.get("JEV_CB_PRODUCT", "SOL-USD"), max_usd=max_usd)
+        return spec["factory"](os.environ.get("VOUCH_CB_PRODUCT", "SOL-USD"), max_usd=max_usd)
     return PaperVenue()
 
 
@@ -249,7 +249,7 @@ VENUES: dict[str, dict] = {
 VENUE_INFO = {
     "paper": {"label": "Paper (simulated fills)", "live": False, "needs_env": [], "docs": "No keys, no orders. Safe default."},
     "coinbase": {"label": "Coinbase Advanced Trade (spot, live)", "live": True,
-                 "needs_env": ["JEV_CB_KEY_NAME", "JEV_CB_PRIVATE_KEY"],
+                 "needs_env": ["VOUCH_CB_KEY_NAME", "VOUCH_CB_PRIVATE_KEY"],
                  "docs": "Real SOL-USD spot orders. Exposure cap per order enforced in the adapter."},
     "arb-paper": {"label": "Arbitrum DEX (paper fills, live prices)", "live": False, "needs_env": [],
                   "docs": "Live SOL/USDC pricing, simulated AMM taker fills. Books canonical receipts as venue class ArbitrumDex while fills remain paper; no bridge, no router."},

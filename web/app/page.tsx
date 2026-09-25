@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchLeaderboard, formatReturnWad, formatUsdg, statusPill, type LeaderboardRow } from "../lib/api";
+import { fetchDemoFlag, fetchLeaderboard, formatReturnWad, formatUsdg, statusPill, type LeaderboardRow } from "../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +17,25 @@ function ReturnCell({ row }: { row: LeaderboardRow }) {
 export default async function LeaderboardPage() {
   let rows: LeaderboardRow[] | null = null;
   let error: string | null = null;
+  let demo = false;
   try {
     rows = await fetchLeaderboard();
+    demo = await fetchDemoFlag();
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
 
   return (
     <>
+      {demo && (
+        <div
+          className="error-panel"
+          style={{ borderColor: "#b8860b", color: "#b8860b" }}
+        >
+          DEMO DATA - synthetic indexer, not live onchain. This is a UI preview
+          before contract deployment; every number here is fabricated.
+        </div>
+      )}
       <h1>Strategy leaderboard</h1>
       <p className="lede">
         Every strategy commits daily equity checkpoints and a Merkle root of its

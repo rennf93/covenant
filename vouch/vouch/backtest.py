@@ -43,7 +43,7 @@ def run_backtest(product: str = "SOL-USD", minutes: int = 1440, cash: float = 10
     )
 
     broker = Broker(starting_cash=cash, max_drawdown_pct=0.20)
-    rules = Rules.from_env()  # honors JEV_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
     s1 = System1()
     decisions_log = out_dir / "decisions.jsonl"
     s2_log = out_dir / "s2-history.jsonl"
