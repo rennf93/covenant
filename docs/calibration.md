@@ -119,14 +119,34 @@ Upstream facts (verified 2026-09-26; installed laya 0.3.20 = latest PyPI):
   the wire contract and would split the dataset); adopt it for the
   fine-tuned head's question trio, pinned byte-identically at serve time.
 
-Baseline from the hummin session (their coding-agent gate, same engine):
-they measured the checkpoint saturating around P 0.5-0.9 with identical
-scores across rubric rewrites, and their architecture is the pattern to
-copy: deterministic classifiers own the enumerable cases, laya scores only
-the gray zone, thresholds are set from live probes inside the MEASURED
-score band, and every verdict is audit-logged. Vouch already has the first
-and last pieces (rails, decisions.jsonl); the calibrated gate and the
-measured thresholds are what Stage 1 added.
+Baseline from the hummin session (their coding-agent gate, same engine,
+PR #5, finished 2026-09-26; their findings, our baseline):
+
+- The checkpoint saturates around P 0.5-0.9 with identical scores across
+  rubric rewrites. ROOT CAUSE FOUND: gate reads routed to the english
+  checkpoint (512-token context) while their rubric + command payload was
+  ~700 tokens - the rubric tail was silently truncated, so prompt edits
+  scored identically to 4 decimals. Check state size against the context
+  budget before trusting ANY score comparison.
+- Multilingual with the full rubric saturates to P 0.87-0.96 (cannot
+  discriminate); a compressed rubric INVERTED behavior (benign 0.92,
+  destructive 0.27). The checkpoint does not reliably condition on
+  instructions in this domain. Conclusion: prompt engineering has a
+  ceiling; precision must come from deterministic structure.
+- Their architecture, now shipped in PR #5: deterministic per-segment
+  classifiers own the enumerable cases (read-only / additive-write fast
+  paths, canonical-destructive hard paths), laya scores only the gray
+  zone at a measured threshold (0.7), every verdict is audit-logged, and
+  137 tests pin the fast paths.
+
+Vouch mapping: rails = the deterministic layer; decisions.jsonl = the
+audit trail; the calibrated gate + measured thresholds are Stage 1. The
+truncation warning is checked, not assumed: a typical vouch ENTRY prompt
+measures 140 tokens against english's 512 budget (272 with a 3x-bloated
+state), so the rubric-truncation failure cannot bite at current state
+sizes. typed-decisions doubles the headroom (1024) if states grow. If a
+state format change moves scores for no apparent reason, check tokens
+first.
 
 Shape of the work:
 
