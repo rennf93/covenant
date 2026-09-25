@@ -87,11 +87,13 @@ class LayaServerBackend:
         api_key: str = "",
         timeout: float = 120.0,
         checkpoint: str = "",
+        retries: int = 3,
     ) -> None:
         self.url = url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.checkpoint = checkpoint
+        self.retries = retries
         self.routed_model: str | None = None
         self._provenance_logged = False
 
@@ -105,19 +107,34 @@ class LayaServerBackend:
             return None
 
     def predict(self, state: dict, questions: dict) -> dict:
+        import time
+
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         payload: dict = {"state": state, "questions": questions}
         if self.checkpoint:
             payload["model"] = self.checkpoint
-        try:
-            r = httpx.post(
-                f"{self.url}/v1/systemone",
-                json=payload,
-                headers=headers,
-                timeout=self.timeout,
-            )
-        except httpx.HTTPError as e:
-            raise BackendError(f"laya server at {self.url} unreachable: {e}") from e
+        # Transport-level retries: the server is a long-lived local process
+        # that can be restarted (or briefly refuse) mid-replay; one refused
+        # connection must not kill a multi-hour run. HTTP-status errors do
+        # not retry - they are answers, not accidents.
+        last_err: Exception | None = None
+        for attempt in range(max(1, self.retries)):
+            try:
+                r = httpx.post(
+                    f"{self.url}/v1/systemone",
+                    json=payload,
+                    headers=headers,
+                    timeout=self.timeout,
+                )
+                break
+            except httpx.HTTPError as e:
+                last_err = e
+                if attempt < self.retries - 1:
+                    time.sleep(2.0 * (attempt + 1))
+        else:
+            raise BackendError(
+                f"laya server at {self.url} unreachable after {self.retries} attempts: {last_err}"
+            ) from last_err
         if r.status_code == 401:
             raise BackendError("laya server rejected the API key (401)")
         if r.status_code == 422:

@@ -93,17 +93,49 @@ exists to fix.
 
 ## Stage 2: fine-tune the decision head (touches the model)
 
-The laya package ships the training path upstream (model card /
-`research` notebooks: dataset -> train -> fit per-(type, size)
-temperatures -> push). The venv copy is inference-only; run training from
-the upstream repo with the colibri venv. Shape of the work:
+Upstream facts (verified 2026-09-26; installed laya 0.3.20 = latest PyPI):
+
+- The fine-tune loop exists and is concrete:
+  `notebooks/laya_finetune_typed_decisions_2xT4_kaggle.ipynb` (dataset build
+  -> RLCD training -> temperature fitting -> eval -> Hub push), ~4-5h on
+  Kaggle's free 2xT4 for 4 epochs over ~30k questions; plus
+  `docs/finetune_browser_agent.md`, a worked single-domain fine-tune on one
+  16GB GPU - the closest analog to a trading-head specialisation. Our
+  harvest replay at 30 days yields ~40k states: the right ballpark.
+- Temperatures are refit per (question type, option-count bucket) on
+  held-out data inside that loop. This step is not optional: shipped
+  checkpoints are over-confident (english ECE 0.466 -> 0.081 after refit),
+  and the english choice:3-5 bucket ships T=1.760, the smoothing that
+  squashes vouch's entry probabilities toward uniform today. The
+  multilingual checkpoint ships with NO fitted temperatures at all.
+- Checkpoint budgets: english 512-token context (~320 left for state after
+  options), typed-decisions 1024, multilingual up to 8192 (measured
+  degradation past ~4k tokens in the long-context bench). Our trading
+  states are small (~80 tokens); typed-decisions has the headroom if states
+  grow.
+- The model card's workaround for the noul label-following failure (#156)
+  is stronger than our criteria-text patch: use a two-option CHOICE with
+  neutral keys instead of noul. Do not switch mid-collection (it changes
+  the wire contract and would split the dataset); adopt it for the
+  fine-tuned head's question trio, pinned byte-identically at serve time.
+
+Baseline from the hummin session (their coding-agent gate, same engine):
+they measured the checkpoint saturating around P 0.5-0.9 with identical
+scores across rubric rewrites, and their architecture is the pattern to
+copy: deterministic classifiers own the enumerable cases, laya scores only
+the gray zone, thresholds are set from live probes inside the MEASURED
+score band, and every verdict is audit-logged. Vouch already has the first
+and last pieces (rails, decisions.jsonl); the calibrated gate and the
+measured thresholds are what Stage 1 added.
+
+Shape of the work:
 
 1. Feed `out/sft-laya-barrier.jsonl` (rows of `{state, questions,
    answers}` in the exact served wire format, including all three ENTRY
-   questions and the noul criteria text) into the upstream SFT trainer.
+   questions and the noul criteria text) into the upstream RLCD trainer.
 2. Refit per-(type, option-count) temperatures on held-out states -
-   upstream measured ECE 0.466 -> 0.081 doing this on `english`; skip it
-   and the probabilities stay smooth lies.
+   upstream measured ECE 0.466 -> 0.081 on `english`; skip it and the
+   probabilities stay smooth lies.
 3. Serve the result as a NAMED checkpoint (do not overwrite the stock
    ones) and pin it: `VOUCH_S1_CHECKPOINT=<name>`. Confirm via the
    provenance log line that it, not `english`, is answering.
