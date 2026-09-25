@@ -49,7 +49,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install httpx
+      - name: install agent + tooling
+        run: pip install httpx pydantic-settings ruff mypy
+      - name: ruff lint + format check
+        working-directory: vouch
+        run: |
+          ruff check vouch tests
+          ruff format --check vouch tests
+      - name: mypy
+        working-directory: vouch
+        run: mypy vouch
       - name: attestation conformance tests
         working-directory: vouch
         run: python3 -m unittest discover -s tests -v

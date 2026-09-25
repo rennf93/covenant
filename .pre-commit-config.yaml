@@ -1,0 +1,25 @@
+# All hooks run locally (no remote hook repos): the tools are already dev
+# dependencies of vouch, so the gate cannot drift from what contributors
+# have installed. Scope: the Python agent; the TS and Rust sides are gated
+# by `make check` / CI instead.
+repos:
+  - repo: local
+    hooks:
+      - id: vouch-ruff-format
+        name: ruff format (vouch)
+        entry: bash -c 'cd vouch && ruff format vouch tests'
+        language: system
+        files: ^vouch/.*\.py$
+        pass_filenames: false
+      - id: vouch-ruff
+        name: ruff check (vouch)
+        entry: bash -c 'cd vouch && ruff check vouch tests'
+        language: system
+        files: ^vouch/.*\.py$
+        pass_filenames: false
+      - id: vouch-mypy
+        name: mypy (vouch)
+        entry: bash -c 'cd vouch && mypy vouch'
+        language: system
+        files: ^vouch/.*\.py$
+        pass_filenames: false

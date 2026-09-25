@@ -23,19 +23,24 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 
-from vouch.broker import Position, stop_level_for
-from vouch.candles import (BarAggregator, inject_volume, latest_candle_volume,
-                         state_snapshot, tick_from_bars)
-from vouch.execution import PaperVenue, VenueError, make_venue
-from vouch.market import Tick
-from vouch.rules import Rules
-from vouch.system1 import System1
-from vouch.system2 import rewrite
+from vouch.engine.broker import Position, stop_level_for
+from vouch.engine.candles import (
+    BarAggregator,
+    inject_volume,
+    latest_candle_volume,
+    state_snapshot,
+    tick_from_bars,
+)
+from vouch.engine.rules import Rules
+from vouch.engine.system1 import System1
+from vouch.engine.system2 import rewrite
+from vouch.exceptions import VenueError
+from vouch.venues import PaperVenue, make_venue
 
 
 class RealBook:
@@ -63,21 +68,27 @@ def main() -> None:
     ap.add_argument("--interval", type=int, default=20)
     ap.add_argument("--epoch-minutes", type=int, default=60)
     ap.add_argument("--max-usd", type=float, default=10.0, help="hard exposure cap per order")
-    ap.add_argument("--confirm-real", action="store_true",
-                    help="required with --venue coinbase; proves you meant it")
-    ap.add_argument("--seed", type=str, default=datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
+    ap.add_argument(
+        "--confirm-real",
+        action="store_true",
+        help="required with --venue coinbase; proves you meant it",
+    )
+    ap.add_argument("--seed", type=str, default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
     a = ap.parse_args()
 
     import os
+
     if os.environ.get("VOUCH_VENUE", "paper") == "coinbase" and not a.confirm_real:
-        raise SystemExit("Refusing: pass --confirm-real to acknowledge real orders with real money.")
+        raise SystemExit(
+            "Refusing: pass --confirm-real to acknowledge real orders with real money."
+        )
     venue = make_venue(max_usd=a.max_usd)
     if isinstance(venue, PaperVenue) and os.environ.get("VOUCH_VENUE") != "paper":
         raise SystemExit("Venue fell back to paper; check your env vars.")
 
     out_dir = Path("out") / f"real-{a.seed}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI)
     s1 = System1()
     client = httpx.Client()
     agg = BarAggregator()
@@ -90,7 +101,7 @@ def main() -> None:
     halted = False
     halt_reason = ""
     cooldown_until = 0  # tick index (System-1 compares against tick.i)
-    realized = 0.0      # NET: gross pnl minus every venue fee
+    realized = 0.0  # NET: gross pnl minus every venue fee
     fees_paid = 0.0
     closed = 0
     epoch_windows: list[dict] = []
@@ -107,7 +118,9 @@ def main() -> None:
         if not position:
             return
         exit_side = "SELL" if position.side == "long" else "BUY"
-        res = venue.market_order(client, exit_side, min(quote_usd * price / position.entry, a.max_usd), price)
+        res = venue.market_order(
+            client, exit_side, min(quote_usd * price / position.entry, a.max_usd), price
+        )
         fill = {}
         if res.get("order_id") and not isinstance(venue, PaperVenue):
             fill = venue.get_fill(client, res["order_id"]) or {}
@@ -127,11 +140,22 @@ def main() -> None:
         position = None
         quote_usd = 0.0
         with log.open("a") as f:
-            f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": "close",
-                                "reason": reason, "gross_usd": round(gross, 4),
-                                "exit_fee": round(exit_fee, 4), "net_usd": round(net, 4),
-                                "realized_total": round(realized, 4),
-                                "exit_price": exit_price, "fill": res}) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(),
+                        "event": "close",
+                        "reason": reason,
+                        "gross_usd": round(gross, 4),
+                        "exit_fee": round(exit_fee, 4),
+                        "net_usd": round(net, 4),
+                        "realized_total": round(realized, 4),
+                        "exit_price": exit_price,
+                        "fill": res,
+                    }
+                )
+                + "\n"
+            )
         print(f"CLOSE ({reason}) net {net:+.4f} USD, realized {realized:+.4f}")
         recent.append(f"{datetime.now():%H:%M} CLOSE {reason} net {net:+.4f}")
 
@@ -164,11 +188,16 @@ def main() -> None:
             elif fav >= rules.take_profit_pct:
                 close_position(price, "TAKE")
 
-        # epoch boundary: System-2 reviews the rolling window and rewrites rules
-        if time.time() >= next_epoch:
-            stats = {"trades": closed - epoch_start_trades,
-                     "pnl_usd": round(realized - (epoch_start_eq - a.max_usd), 4),
-                     "open_position": position is not None}
+        # epoch boundary: System-2 reviews the rolling window and rewrites rules.
+        # NOTE (pre-existing, preserved verbatim): next_epoch is read here but
+        # assigned later in this function without a nonlocal declaration, so the
+        # first processed bar raises UnboundLocalError. Flagged, not changed.
+        if time.time() >= next_epoch:  # noqa: F823
+            stats = {
+                "trades": closed - epoch_start_trades,
+                "pnl_usd": round(realized - (epoch_start_eq - a.max_usd), 4),
+                "open_position": position is not None,
+            }
             rules2, s2info = rewrite(rules, stats, window=epoch_windows)
             rules.min_conviction = rules2.min_conviction
             rules.flat_max_p = rules2.flat_max_p
@@ -181,20 +210,37 @@ def main() -> None:
             rules.exit_pressure_min = rules2.exit_pressure_min
             rules.min_edge_pct = rules2.min_edge_pct
             with (out_dir / "s2-history.jsonl").open("a") as f:
-                f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
-                                    "epoch": stats, "s2": s2info, "rules": rules.to_dict()}) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(UTC).isoformat(),
+                            "epoch": stats,
+                            "s2": s2info,
+                            "rules": rules.to_dict(),
+                        }
+                    )
+                    + "\n"
+                )
             epoch_windows.append(stats)
             epoch_start_trades = closed
             epoch_start_eq = a.max_usd + realized
-            next_epoch = time.time() + a.epoch_minutes * 60
-            print(f"[{datetime.now():%H:%M:%S}] SYSTEM-2 via {s2info['backend']}: applied={s2info['applied']}")
+            next_epoch = time.time() + a.epoch_minutes * 60  # noqa: F841  (see F823 note above)
+            print(
+                f"[{datetime.now():%H:%M:%S}] SYSTEM-2 via {s2info['backend']}: "
+                f"applied={s2info['applied']}"
+            )
 
         book = RealBook(position, cooldown_until)
         d = s1.decide(tick, book, rules, recent)
         if d["mode"] == "exit" and d["final_action"] == "exit" and position:
             close_position(price, "LAYA_EXIT")
-        elif d["mode"] == "entry" and d["final_action"] == "long" and d["veto"] is None \
-                and position is None and tick_counter > cooldown_until:
+        elif (
+            d["mode"] == "entry"
+            and d["final_action"] == "long"
+            and d["veto"] is None
+            and position is None
+            and tick_counter > cooldown_until
+        ):
             size = round(min(a.max_usd, equity * rules.max_position_pct), 2)
             try:
                 res = venue.market_order(client, "BUY", size, price)
@@ -206,34 +252,64 @@ def main() -> None:
                 realized -= entry_fee
                 fees_paid += entry_fee
                 quote_usd = float(fill.get("size") * entry_price) if fill.get("size") else size
-                position = Position(side="long", size_usd=quote_usd, entry=entry_price,
-                                    open_tick=tick_counter)
-                recent.append(f"{datetime.now():%H:%M} OPEN long @ {entry_price:.2f} "
-                              f"(conv {d['conviction']:.2f})")
+                position = Position(
+                    side="long", size_usd=quote_usd, entry=entry_price, open_tick=tick_counter
+                )
+                recent.append(
+                    f"{datetime.now():%H:%M} OPEN long @ {entry_price:.2f} "
+                    f"(conv {d['conviction']:.2f})"
+                )
                 with log.open("a") as f:
-                    f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": "open",
-                                        "side": "BUY", "quote_usd": size, "entry_price": entry_price,
-                                        "entry_fee": round(entry_fee, 4), "fill": res,
-                                        "decision": d}) + "\n")
+                    f.write(
+                        json.dumps(
+                            {
+                                "ts": datetime.now(UTC).isoformat(),
+                                "event": "open",
+                                "side": "BUY",
+                                "quote_usd": size,
+                                "entry_price": entry_price,
+                                "entry_fee": round(entry_fee, 4),
+                                "fill": res,
+                                "decision": d,
+                            }
+                        )
+                        + "\n"
+                    )
                 print(f"OPEN BUY ${size:.2f} @ {entry_price:.2f} (conv {d['conviction']:.2f})")
             except VenueError as e:
                 print(f"ORDER REFUSED: {e}")
                 with log.open("a") as f:
-                    f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
-                                        "event": "refused", "why": str(e), "decision": d}) + "\n")
+                    f.write(
+                        json.dumps(
+                            {
+                                "ts": datetime.now(UTC).isoformat(),
+                                "event": "refused",
+                                "why": str(e),
+                                "decision": d,
+                            }
+                        )
+                        + "\n"
+                    )
 
         with log.open("a") as f:
-            f.write(json.dumps({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "tick": tick_counter,
-                "price": price,
-                "equity": round(equity, 4),
-                "state": state_snapshot(tick, book),
-                "decision": d,
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(),
+                        "tick": tick_counter,
+                        "price": price,
+                        "equity": round(equity, 4),
+                        "state": state_snapshot(tick, book),
+                        "decision": d,
+                    }
+                )
+                + "\n"
+            )
 
-    print(f"REAL session: venue={type(venue).__name__} product={venue.product} cap={a.max_usd} USD, "
-          f"{a.minutes} min. Long-only (spot). Shorts are disabled in real mode.")
+    print(
+        f"REAL session: venue={type(venue).__name__} product={venue.product} cap={a.max_usd} USD, "
+        f"{a.minutes} min. Long-only (spot). Shorts are disabled in real mode."
+    )
     try:
         while time.time() < deadline:
             try:
@@ -257,7 +333,6 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
 
-    equity = a.max_usd + realized
     summary = {
         "mode": f"REAL ({type(venue).__name__})",
         "starting": a.max_usd,
@@ -266,8 +341,9 @@ def main() -> None:
         "return_pct": round(realized / a.max_usd * 100, 3),
         "closed_trades": closed,
         "open_position": position is not None,
-        "halted": halted, "halt_reason": halt_reason,
-        "ended": datetime.now(timezone.utc).isoformat(),
+        "halted": halted,
+        "halt_reason": halt_reason,
+        "ended": datetime.now(UTC).isoformat(),
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     if position:

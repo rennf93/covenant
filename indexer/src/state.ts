@@ -113,7 +113,8 @@ function epochOf(strategy: StrategyView, index: unknown): EpochView {
 /**
  * Recomputes the derived view from finalized epochs. O(epochs); called per
  * relevant event. Total-return convention: pnl_0 includes the initial flow
- * because epoch 0's netFlow is the seed capital (see docs/DESIGN.md section 5).
+ * because epoch 0's netFlow is the seed capital (see docs/protocol.md,
+ * section 3.4 PnL accounting).
  */
 function rederive(strategy: StrategyView): void {
   const d = strategy.derived;

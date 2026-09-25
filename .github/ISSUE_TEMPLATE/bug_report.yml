@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in Covenant is broken or behaves against the docs.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the monorepo is affected?
+      options:
+        - contracts (Stylus contract / merkle-core)
+        - sdk (TypeScript SDK)
+        - indexer (event indexer + JSON API)
+        - web (Next.js leaderboard)
+        - vouch (trading agent)
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, what happened instead? Include any spec citation (docs/protocol.md) the behavior contradicts.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Commands, env vars, and inputs to reproduce. A failing test is the best repro.
+      placeholder: |
+        1. cd contracts/covenant
+        2. cargo test
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, node/pnpm or cargo/rustc or python version, commit hash, chain (arbitrum / arbitrum-sepolia / anvil) if chain-related.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs and evidence
+      description: Error output, tx hashes, evidence bundle paths. Anything that makes the report verifiable.
+    validations:
+      required: false

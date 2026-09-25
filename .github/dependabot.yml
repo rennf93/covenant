@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # CI workflows and GitHub Actions used by the repo
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # pnpm workspace root (sdk, indexer, web; sdk is a dependency of indexer and web)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"

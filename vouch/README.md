@@ -57,7 +57,7 @@ A local-only web UI (FastAPI, binds 127.0.0.1:8787) that lets you:
   defaults. Saved settings are injected into spawned runners via
   `VOUCH_RULES` / `VOUCH_FEE_BPS` env, so they apply to real loops.
 - **Control**: launch sim/shadow/backtest runs, stop and restart them.
-- **Venues**: pick the venue per run from a registry (`vouch/execution.py`).
+- **Venues**: pick the venue per run from a registry (`vouch/vouch/venues/`).
   Three ship built in: paper (simulated fills), coinbase (live spot), and
   `arb-paper` (an honest Arbitrum DEX paper venue: live SOL/USDC pricing,
   simulated AMM taker fills). Adding a venue means implementing
@@ -107,7 +107,7 @@ rewriter, so a session never stalls or dies when the big model is down.
 
 `run_real.py` refuses to run without `VOUCH_VENUE=coinbase` AND
 `--confirm-real`. The venue adapter enforces a per-order exposure cap
-(`--max-usd`, default 10) inside `vouch/execution.py` - in code, not in
+(`--max-usd`, default 10) inside `vouch/vouch/venues/` - in code, not in
 prompts. Real mode is long-only (spot), single position, started BY A
 HUMAN by hand. It must never be launched by an autonomous loop.
 Real mode books entry/exit from the venue's executed FILLS (price + fee
@@ -180,9 +180,9 @@ applied/rejected record for later attribution analysis.
 - The decision on what to build next should be made by the IC numbers
   from run_analysis.py, not by feel.
 
-## Covenant attestation (vouch/attest)
+## Covenant attestation (vouch/vouch/attest)
 
-The `attest/` package turns every booked fill into a canonical Covenant
+The `vouch.attest` package turns every booked fill into a canonical Covenant
 receipt (the byte-exact Python mirror of `sdk/src/receipt.ts`: static ABI
 encoding, keccak256 leaf hash, sign derived from position direction so a
 bought base asset is positive and a sold one negative, including short
@@ -197,7 +197,7 @@ and on every exit path - the kill switch included - so fsynced receipts
 are never silently dropped) writes a self-contained evidence bundle
 (receipts, hashes, Merkle proofs, equity, net flow, trades root) BEFORE
 any chain call, then optionally commits `commitEpoch(equity, netFlow,
-tradesRoot)` through a small Node bridge (`attest/bridge.mjs`, viem)
+tradesRoot)` through a small Node bridge (`vouch/vouch/attest/bridge.mjs`, viem)
 against the Stylus proxy, and self-audits the first receipt onchain. If
 the chain call fails, the evidence bundle already exists on disk and the
 commit can be retried.
@@ -244,7 +244,7 @@ minus deposits, which is the invariant the protocol audits.
 
 Conformance: the Python receipt encoder and Merkle tree are validated
 against fixtures generated from the TypeScript SDK by
-`tests/test_attest.py` (`python3 -m unittest discover -s tests`); the
+`tests/attest/test_attest.py` (`python3 -m unittest discover -s tests`); the
 Merkle fixtures are the same cross-language vectors shared with
 `contracts/merkle-core`, so python, TS SDK and Rust contract agree on
 every byte.

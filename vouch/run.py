@@ -5,7 +5,7 @@ except the optional System-2 LLM endpoint you configure yourself."""
 import argparse
 import json
 
-from vouch.session import run_session
+from vouch.engine.session import run_session
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="vouch: self-rewriting paper-trading simulation")
@@ -15,6 +15,7 @@ if __name__ == "__main__":
     ap.add_argument("--cash", type=float, default=1000.0)
     ap.add_argument("--out", type=str, default="out")
     a = ap.parse_args()
-    summary = run_session(ticks=a.ticks, epoch_len=a.epoch, seed=a.seed,
-                          starting_cash=a.cash, out=a.out)
+    summary = run_session(
+        ticks=a.ticks, epoch_len=a.epoch, seed=a.seed, starting_cash=a.cash, out=a.out
+    )
     print(json.dumps(summary, indent=2))

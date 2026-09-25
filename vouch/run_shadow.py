@@ -20,23 +20,28 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 
-from attest import AttestationConfig, Attestor, receipts
-from vouch.broker import Broker
-from vouch.candles import (BarAggregator, inject_volume, latest_candle_volume,
-                         state_snapshot, tick_from_bars)
-from vouch.execution import make_venue
-from vouch.rules import Rules
-from vouch.system1 import System1
-from vouch.system2 import rewrite
-from vouch.wsfeed import WsPriceFeed
+from vouch.attest import AttestationConfig, Attestor, receipts
+from vouch.config import load_settings
+from vouch.engine.broker import Broker
+from vouch.engine.candles import (
+    BarAggregator,
+    inject_volume,
+    latest_candle_volume,
+    state_snapshot,
+    tick_from_bars,
+)
+from vouch.engine.rules import Rules
+from vouch.engine.system1 import System1
+from vouch.engine.system2 import rewrite
+from vouch.engine.wsfeed import WsPriceFeed
+from vouch.venues import make_venue
 
 COINBASE_SPOT = "https://api.coinbase.com/v2/prices/SOL-USD/spot"
 
@@ -50,24 +55,39 @@ def fetch_price(client: httpx.Client) -> float:
 def main() -> None:
     ap = argparse.ArgumentParser(description="vouch shadow mode: live prices, paper fills")
     ap.add_argument("--minutes", type=int, default=60)
-    ap.add_argument("--forever", action="store_true",
-                    help="run until stopped (daemon mode; --minutes is ignored)")
-    ap.add_argument("--interval", type=int, default=15, help="seconds between price polls (fallback mode)")
-    ap.add_argument("--epoch-minutes", type=int, default=15,
-                    help="minutes between System-2 rule rewrites (0 = never)")
-    ap.add_argument("--cash", type=float, default=10.0, help="paper stake to mirror the real experiment")
-    ap.add_argument("--no-websocket", action="store_true",
-                    help="disable the trade websocket, poll spot instead")
-    ap.add_argument("--seed", type=str, default=datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
-    ap.add_argument("--attest", action="store_true",
-                    help="opt in to Covenant attestation (ledger-only unless the"
-                         " COVENANT_RPC_URL/KEY/CONTRACT env trio is also set)")
+    ap.add_argument(
+        "--forever",
+        action="store_true",
+        help="run until stopped (daemon mode; --minutes is ignored)",
+    )
+    ap.add_argument(
+        "--interval", type=int, default=15, help="seconds between price polls (fallback mode)"
+    )
+    ap.add_argument(
+        "--epoch-minutes",
+        type=int,
+        default=15,
+        help="minutes between System-2 rule rewrites (0 = never)",
+    )
+    ap.add_argument(
+        "--cash", type=float, default=10.0, help="paper stake to mirror the real experiment"
+    )
+    ap.add_argument(
+        "--no-websocket", action="store_true", help="disable the trade websocket, poll spot instead"
+    )
+    ap.add_argument("--seed", type=str, default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
+    ap.add_argument(
+        "--attest",
+        action="store_true",
+        help="opt in to Covenant attestation (ledger-only unless the"
+        " COVENANT_RPC_URL/KEY/CONTRACT env trio is also set)",
+    )
     a = ap.parse_args()
 
     out_dir = Path("out") / f"live-{a.seed}"
     out_dir.mkdir(parents=True, exist_ok=True)
     broker = Broker(starting_cash=a.cash, max_drawdown_pct=0.20)
-    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI) 
+    rules = Rules.from_env()  # honors VOUCH_RULES (set by the UI)
     s1 = System1()
     client = httpx.Client()
     agg = BarAggregator()
@@ -78,7 +98,7 @@ def main() -> None:
     deadline = None if a.forever else time.time() + a.minutes * 60
     next_epoch = time.time() + a.epoch_minutes * 60 if a.epoch_minutes else None
     epoch_windows: list[dict] = []
-    epoch_start = {"trades": 0, "equity": a.cash, "ts": datetime.now(timezone.utc).isoformat()}
+    epoch_start = {"trades": 0, "equity": a.cash, "ts": datetime.now(UTC).isoformat()}
     last_volume_fetch = 0.0
     tick_counter = 0
 
@@ -93,10 +113,16 @@ def main() -> None:
     strategy_name = ""
     if cfg.enabled:
         venue = make_venue()  # paper by default; class + instrument go into receipts
-        strategy_id = int(os.environ.get("COVENANT_STRATEGY_ID", "0"))
-        strategy_name = os.environ.get("COVENANT_STRATEGY_NAME", "vouch-sol")
-        attestor = Attestor(cfg, run_dir=out_dir, strategy_id=strategy_id,
-                            venue=venue.receipt_venue, instrument=venue.instrument)
+        attest_settings = load_settings().attest
+        strategy_id = attest_settings.strategy_id
+        strategy_name = attest_settings.strategy_name
+        attestor = Attestor(
+            cfg,
+            run_dir=out_dir,
+            strategy_id=strategy_id,
+            venue=venue.receipt_venue,
+            instrument=venue.instrument,
+        )
         ledger = attestor.start_epoch(epoch_index)
 
         def observe_fill(f: dict) -> None:
@@ -124,13 +150,15 @@ def main() -> None:
 
         broker.fill_observer = observe_fill
         mode = "onchain" if cfg.connected else "ledger-only"
-        print(f"[{datetime.now():%H:%M:%S}] attestation {mode}: venue={venue.venue_id} "
-              f"instrument={venue.instrument}")
+        print(
+            f"[{datetime.now():%H:%M:%S}] attestation {mode}: venue={venue.venue_id} "
+            f"instrument={venue.instrument}"
+        )
 
     def epoch_stats(price: float) -> dict:
         closed = [t for t in broker.trades if "pnl_usd" in t]
         new_trades = len(closed) - epoch_start["trades"]
-        wins = sum(1 for t in closed[epoch_start["trades"]:] if t["pnl_usd"] > 0)
+        wins = sum(1 for t in closed[epoch_start["trades"] :] if t["pnl_usd"] > 0)
         return {
             "trades": new_trades,
             "win_rate": round(wins / new_trades, 3) if new_trades else None,
@@ -160,12 +188,18 @@ def main() -> None:
             rules, s2info = rewrite(rules, stats, window=epoch_windows)
             epoch_windows.append(stats)
             broker.cooldown_ticks = rules.cooldown_ticks  # keep the rail in sync
-            row = {"ts": datetime.now(timezone.utc).isoformat(), "epoch": stats, "s2": s2info,
-                   "rules": rules.to_dict()}
+            row = {
+                "ts": datetime.now(UTC).isoformat(),
+                "epoch": stats,
+                "s2": s2info,
+                "rules": rules.to_dict(),
+            }
             with s2_log.open("a") as f:
                 f.write(json.dumps(row) + "\n")
-            print(f"[{datetime.now():%H:%M:%S}] SYSTEM-2 rewrite via {s2info['backend']}: "
-                  f"applied={s2info['applied']} rejected={s2info['rejected']}")
+            print(
+                f"[{datetime.now():%H:%M:%S}] SYSTEM-2 rewrite via {s2info['backend']}: "
+                f"applied={s2info['applied']} rejected={s2info['rejected']}"
+            )
             if attestor is not None and ledger is not None:
                 # Epoch 0's netFlow carries the seed capital (the starting
                 # cash), so cumulative PnL telescopes to finalEquity minus
@@ -179,11 +213,15 @@ def main() -> None:
                     strategy_name=strategy_name,
                 )
                 if res["committed"]:
-                    print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
-                          f"committed: tx {res['hash']}")
+                    print(
+                        f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
+                        f"committed: tx {res['hash']}"
+                    )
                 else:
-                    print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} closed "
-                          f"(ledger-only, {res['receipts']} receipts): {res['reason']}")
+                    print(
+                        f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} closed "
+                        f"(ledger-only, {res['receipts']} receipts): {res['reason']}"
+                    )
                 epoch_index += 1
                 ledger = attestor.start_epoch(epoch_index)
             epoch_start["trades"] = len([t for t in broker.trades if "pnl_usd" in t])
@@ -197,8 +235,10 @@ def main() -> None:
         try:
             d = s1.decide(tick, broker, rules, recent)
         except Exception as e:  # noqa: BLE001 - keep the loop alive
-            print(f"[{datetime.now():%H:%M:%S}] tick {tick_counter}: System-1 backend "
-                  f"failed ({type(e).__name__}: {e}); holding, retrying next bar")
+            print(
+                f"[{datetime.now():%H:%M:%S}] tick {tick_counter}: System-1 backend "
+                f"failed ({type(e).__name__}: {e}); holding, retrying next bar"
+            )
             return
         acted = None
         if d["mode"] == "exit" and d["final_action"] == "exit":
@@ -207,16 +247,23 @@ def main() -> None:
             recent.append(f"tick {tick_counter}: EXIT @ {price:.2f}")
         elif d["mode"] == "entry" and d["final_action"] != "flat" and d["veto"] is None:
             size = broker.equity(price) * rules.max_position_pct
-            broker.open(d["final_action"], size, price, tick_counter,
-                        reason=f"conv={d['conviction']:.2f} enter={d['enter_p']:.2f}")
+            broker.open(
+                d["final_action"],
+                size,
+                price,
+                tick_counter,
+                reason=f"conv={d['conviction']:.2f} enter={d['enter_p']:.2f}",
+            )
             acted = f"OPEN {d['final_action']} ${size:.2f}"
-            recent.append(f"tick {tick_counter}: OPEN {d['final_action']} @ {price:.2f} "
-                          f"(conv {d['conviction']:.2f})")
+            recent.append(
+                f"tick {tick_counter}: OPEN {d['final_action']} @ {price:.2f} "
+                f"(conv {d['conviction']:.2f})"
+            )
         if d["veto"] and d["mode"] == "exit":
             pass  # hold; nothing to record beyond the row
 
         row = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "tick": tick_counter,
             "price": price,
             "equity": round(broker.equity(price), 4),
@@ -229,12 +276,16 @@ def main() -> None:
         if acted:
             print(f"[{datetime.now():%H:%M:%S}] px {price:.2f} eq {row['equity']:.2f} -> {acted}")
         if broker.position:
-            print(f"    position {broker.position.side} ${broker.position.size_usd:.2f} "
-                  f"@ {broker.position.entry:.2f} (peak fav {broker.position.peak_fav:+.2%})")
+            print(
+                f"    position {broker.position.side} ${broker.position.size_usd:.2f} "
+                f"@ {broker.position.entry:.2f} (peak fav {broker.position.peak_fav:+.2%})"
+            )
 
     feed = "websocket" if (ws and ws.alive) else f"polling {a.interval}s"
-    print(f"shadow session: {'forever' if a.forever else str(a.minutes) + ' min'}, "
-          f"feed={feed}, paper stake ${a.cash:.2f}, fee {broker.fee:.2%}/side")
+    print(
+        f"shadow session: {'forever' if a.forever else str(a.minutes) + ' min'}, "
+        f"feed={feed}, paper stake ${a.cash:.2f}, fee {broker.fee:.2%}/side"
+    )
     last_bar_ts = 0
     try:
         while deadline is None or time.time() < deadline:
@@ -247,7 +298,10 @@ def main() -> None:
                     price = fetch_price(client)
                     agg.add(time.time(), price)
                 except Exception as e:  # noqa: BLE001 - transient network, keep going
-                    print(f"[{datetime.now():%H:%M:%S}] price fetch failed ({type(e).__name__}), retrying")
+                    print(
+                        f"[{datetime.now():%H:%M:%S}] price fetch failed "
+                        f"({type(e).__name__}), retrying"
+                    )
                 time.sleep(a.interval)
 
             # real volume for the newest completed bar, once a minute
@@ -287,17 +341,24 @@ def main() -> None:
                     net_flow_usd=net_flow,
                     strategy_name=strategy_name,
                 )
-                how = f"tx {res['hash']}" if res["committed"] else f"ledger-only ({res['receipts']} receipts)"
-                print(f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
-                      f"closed at shutdown: {how}")
+                how = (
+                    f"tx {res['hash']}"
+                    if res["committed"]
+                    else f"ledger-only ({res['receipts']} receipts)"
+                )
+                print(
+                    f"[{datetime.now():%H:%M:%S}] attestation epoch {epoch_index} "
+                    f"closed at shutdown: {how}"
+                )
             except Exception as e:  # noqa: BLE001 - never mask the run summary
-                print(f"WARNING: shutdown commit of epoch {epoch_index} failed: {e}",
-                      file=sys.stderr)
+                print(
+                    f"WARNING: shutdown commit of epoch {epoch_index} failed: {e}", file=sys.stderr
+                )
 
     eq = broker.equity(list(agg.bars)[-1].close) if agg.bars else a.cash
     summary = {
         "mode": "shadow (live prices, paper fills)",
-        "ended": datetime.now(timezone.utc).isoformat(),
+        "ended": datetime.now(UTC).isoformat(),
         "starting_cash": a.cash,
         "final_equity": round(eq, 4),
         "return_pct": round((eq / a.cash - 1) * 100, 3),
