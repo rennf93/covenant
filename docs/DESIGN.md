@@ -54,7 +54,7 @@ Proven therefore guarantees *consistency and commitment*, not absolute truth:
 ┌────────────┐   commits+receipts   ┌──────────────────────┐
 │ Strategy    │ ───────────────────▶ │ Stylus Contract       │
 │ vouch       │   (vouch adapter or    │ (Arbitrum One/Sepolia)│
-│ (jev bot)   │    any bot SDK)      │ USDG bonds/stakes     │
+│ (vouch agent)   │    any bot SDK)      │ USDG bonds/stakes     │
 └────────────┘                       └──────────┬───────────┘
         ▲                                       │ events + state
         │ challenges (anyone)                   ▼
@@ -116,7 +116,7 @@ receipt = keccak256(abi.encode(
 
 ## 7. Operator SDK flow (vouch adapter implements this)
 
-1. register + bond (one-time, env-gated like jev's real mode)
+1. register + bond (one-time, env-gated like vouch's real mode)
 2. per fill: append canonical receipt to local epoch log (SQLite/JSONL)
 3. at epoch close: build Merkle tree, `commitEpoch`
 4. receipts published alongside (IPFS/HTTP evidenceURI + optional onchain root)
@@ -147,4 +147,4 @@ Once the vouch port lands (renamed, dual venue), the attestation module is:
   venueOrderIdHash = keccak(venue order id), instrumentHash = keccak(instrument).
 - Real mode interlock: attestation writes are allowed in shadow AND real mode,
   but the USDG onchain commit only fires in real mode or when explicitly
-  enabled, mirroring jev's existing safety rails.
+  enabled, mirroring vouch's existing safety rails.

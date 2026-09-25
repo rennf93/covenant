@@ -23,10 +23,10 @@ function makeState(): ProvenState {
 
 test("registered strategy derives zero performance before epochs", () => {
   let state = makeState();
-  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "jev-core", bond: 1000n }, 5n));
+  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "vouch-core", bond: 1000n }, 5n));
   const s = state.strategies.get("1")!;
   assert.equal(s.owner, OPERATOR);
-  assert.equal(s.name, "jev-core");
+  assert.equal(s.name, "vouch-core");
   assert.equal(s.derived.finalizedEpochs, 0);
   assert.equal(s.derived.returnWad, null);
   assert.equal(state.lastBlock, 5n);
