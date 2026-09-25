@@ -42,6 +42,12 @@ class LocalLayaBackend:
     name = "local"
 
     def __init__(self):
+        # Quiet the huggingface download bars and laya's calibration
+        # RuntimeWarning (its checkpoint clamps temperatures itself; the
+        # warning repeats on every cold start and reads like an error).
+        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+        import warnings
+        warnings.filterwarnings("ignore", message="laya: this checkpoint ships invalid temperatures")
         try:
             from laya import Router
         except ImportError as e:
