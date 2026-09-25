@@ -58,8 +58,8 @@ export default function VerifyClient() {
       setResult({
         ok: verified,
         text: verified
-          ? "VERIFIED: this receipt is committed in the strategy's epoch history."
-          : "REJECTED: this receipt is not part of the committed epoch history.",
+          ? `VERIFIED - leaf ${receipt.trim()} is committed in the strategy's epoch history.`
+          : `REJECTED - leaf ${receipt.trim()} is not part of the committed epoch history.`,
       });
     } catch (err) {
       setResult({ ok: false, text: err instanceof Error ? err.message : String(err) });
@@ -71,31 +71,61 @@ export default function VerifyClient() {
   return (
     <>
       <form className="verify" onSubmit={onSubmit}>
-        <label>
-          Strategy id
-          <input value={strategyId} onChange={(e) => setStrategyId(e.target.value)} inputMode="numeric" />
-        </label>
-        <label>
-          Epoch index
-          <input value={epochIndex} onChange={(e) => setEpochIndex(e.target.value)} inputMode="numeric" />
-        </label>
-        <label>
-          Receipt hash (0x…)
-          <input value={receipt} onChange={(e) => setReceipt(e.target.value)} placeholder="0x…" />
-        </label>
-        <label>
-          Merkle proof, one sibling hash per line
+        <div className="field">
+          <label className="field-label" htmlFor="strategy-id">
+            Strategy id
+          </label>
+          <input
+            id="strategy-id"
+            value={strategyId}
+            onChange={(e) => setStrategyId(e.target.value)}
+            inputMode="numeric"
+          />
+          <p className="field-helper">numeric strategy registry id</p>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="epoch-index">
+            Epoch index
+          </label>
+          <input
+            id="epoch-index"
+            value={epochIndex}
+            onChange={(e) => setEpochIndex(e.target.value)}
+            inputMode="numeric"
+          />
+          <p className="field-helper">epoch index within the strategy&apos;s history</p>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="receipt-hash">
+            Receipt hash
+          </label>
+          <input
+            id="receipt-hash"
+            value={receipt}
+            onChange={(e) => setReceipt(e.target.value)}
+            placeholder="0x…"
+          />
+          <p className="field-helper">32-byte hex hash (0x…, 64 hex chars) from the evidence bundle</p>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="merkle-proof">
+            Merkle proof
+          </label>
           <textarea
+            id="merkle-proof"
             value={proofText}
             onChange={(e) => setProofText(e.target.value)}
             placeholder={"0xaaaa…\n0xbbbb…"}
           />
-        </label>
+          <p className="field-helper">one sibling hash per line, 32-byte hex each</p>
+        </div>
         <button type="submit" disabled={busy}>
           {busy ? "Checking onchain…" : "Verify onchain"}
         </button>
       </form>
-      {result !== null && <div className={`result ${result.ok ? "ok" : "bad"}`}>{result.text}</div>}
+      {result !== null && (
+        <div className={`result ${result.ok ? "ok" : "bad"}`}>{result.text}</div>
+      )}
     </>
   );
 }
