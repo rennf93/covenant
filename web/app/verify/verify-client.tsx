@@ -119,12 +119,18 @@ export default function VerifyClient() {
           />
           <p className="field-helper">one sibling hash per line, 32-byte hex each</p>
         </div>
-        <button type="submit" disabled={busy}>
+        {busy && (
+          <div className="scan-bar" role="status" aria-label="Checking onchain" />
+        )}
+        <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? "Checking onchain…" : "Verify onchain"}
         </button>
       </form>
       {result !== null && (
-        <div className={`result ${result.ok ? "ok" : "bad"}`}>{result.text}</div>
+        <div className={`verdict ${result.ok ? "ok" : "bad"}`} role="status">
+          <p className="verdict-word">{result.ok ? "VERIFIED" : "REJECTED"}</p>
+          <p className="result">{result.text}</p>
+        </div>
       )}
     </>
   );

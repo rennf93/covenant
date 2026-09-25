@@ -21,6 +21,12 @@ export interface LeaderboardRow {
   };
   finalizedEpochs: number;
   totalEpochs: number;
+  /**
+   * Finalized-epoch equity series in plain human numbers, ascending epoch
+   * order, capped to the last 32 points; null below 2 finalized checkpoints
+   * so the UI never charts a single point.
+   */
+  spark: (number | null)[] | null;
 }
 
 export interface EpochRow {

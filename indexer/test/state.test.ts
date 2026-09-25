@@ -87,8 +87,18 @@ test("invariants fail on inconsistent history", () => {
 
 test("unknown events are ignored and blocks only move forward", () => {
   let state = makeState();
+  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "j", bond: 1000n }));
   state = applyEvent(state, { eventName: "SomethingNew", args: {}, blockNumber: 7n });
   assert.equal(state.lastBlock, 7n);
   state = applyEvent(state, { eventName: "SomethingNew", args: {}, blockNumber: 3n });
   assert.equal(state.lastBlock, 7n);
+});
+
+test("StrategyStatusChanged suspends and reactivates a strategy", () => {
+  let state = makeState();
+  state = applyEvent(state, emit("StrategyRegistered", { strategy_id: 1n, owner: OPERATOR, name: "j", bond: 1000n }));
+  state = applyEvent(state, emit("StrategyStatusChanged", { strategy_id: 1n, status: 1n }, 6n));
+  assert.equal(state.strategies.get("1")!.status, 1n);
+  state = applyEvent(state, emit("StrategyStatusChanged", { strategy_id: 1n, status: 0n }, 7n));
+  assert.equal(state.strategies.get("1")!.status, 0n);
 });

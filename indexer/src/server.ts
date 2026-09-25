@@ -18,7 +18,27 @@ export function jsonResponse(res: ServerResponse, status: number, body: unknown)
   res.end(payload);
 }
 
-function leaderboardRow(s: StrategyView) {
+/** USDG uses 6 decimals on every chain it deploys to. */
+const USDG_SCALE = 1e6;
+/** Trend sparkline cap: at most the last 32 finalized checkpoints. */
+const SPARK_MAX_POINTS = 32;
+
+/**
+ * Finalized-epoch equity series for the leaderboard trend column: plain human
+ * numbers (equity is bigint base units), ascending epoch order, capped to the
+ * last 32 points. Null below 2 finalized points so the UI never draws a line
+ * from a single checkpoint.
+ */
+export function sparkSeries(s: StrategyView): number[] | null {
+  const points = [...s.epochs.values()]
+    .filter((e) => e.status === 1 && e.equity !== null)
+    .sort((a, b) => (a.epochIndex < b.epochIndex ? -1 : a.epochIndex > b.epochIndex ? 1 : 0))
+    .slice(-SPARK_MAX_POINTS)
+    .map((e) => Number(e.equity) / USDG_SCALE);
+  return points.length >= 2 ? points : null;
+}
+
+export function leaderboardRow(s: StrategyView) {
   return {
     id: s.id.toString(),
     owner: s.owner,
@@ -33,6 +53,7 @@ function leaderboardRow(s: StrategyView) {
     },
     finalizedEpochs: s.derived.finalizedEpochs,
     totalEpochs: s.epochs.size,
+    spark: sparkSeries(s),
   };
 }
 

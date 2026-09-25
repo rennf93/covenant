@@ -49,6 +49,12 @@ importers:
       '@covenant/sdk':
         specifier: workspace:*
         version: link:../sdk
+      '@fontsource-variable/space-grotesk':
+        specifier: ^5.1.0
+        version: 5.3.0
+      geist:
+        specifier: ^1.3.1
+        version: 1.7.2(next@15.5.26(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
       next:
         specifier: ^15.1.0
         version: 15.5.26(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -83,6 +89,9 @@ packages:
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
+
+  '@fontsource-variable/space-grotesk@5.3.0':
+    resolution: {integrity: sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -483,6 +492,11 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
+  geist@1.7.2:
+    resolution: {integrity: sha512-Gu5lDFa3pLRyoBlBPf0QIFHVdWAnpco7fS1bJm41jyLPFoguBgiubseUN2oLXMgqZ7uxAxDoXcHMhCY/fOTTgg==}
+    peerDependencies:
+      next: '>=13.2.0'
+
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
@@ -855,6 +869,8 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@fontsource-variable/space-grotesk@5.3.0': {}
+
   '@img/colour@1.1.0':
     optional: true
 
@@ -1163,6 +1179,10 @@ snapshots:
       signal-exit: 4.1.0
 
   function-bind@1.1.2: {}
+
+  geist@1.7.2(next@15.5.26(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)):
+    dependencies:
+      next: 15.5.26(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
 
   get-caller-file@2.0.5: {}
 

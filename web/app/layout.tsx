@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import "@fontsource-variable/space-grotesk";
 import { indexerUrl } from "../lib/api";
 import "./globals.css";
 
@@ -32,41 +35,68 @@ async function IndexerStatus() {
     ok = false;
   }
   return (
-    <span>
-      <span className={ok ? "dot dot-ok" : "dot dot-bad"} />
-      indexer
+    <span className="chip">
+      <span className={ok ? "dot dot-ok" : "dot dot-bad"} aria-hidden="true" />
+      indexer {ok ? "live" : "down"}
     </span>
   );
 }
 
+/** Same protocol facts as before, as refined chips inside the header pill. */
 function ProtocolStrip() {
   const chain = process.env.NEXT_PUBLIC_CHAIN ?? "arbitrum-sepolia";
   return (
     <div className="protocol-strip">
-      <span>{chain}</span>
-      <span>{contractShortform()}</span>
+      <span className="chip">{chain}</span>
+      <span className="chip">{contractShortform()}</span>
       <IndexerStatus />
+    </div>
+  );
+}
+
+/** Fixed decorative background: mesh gradients, blueprint grid, film grain. */
+function BackgroundLayers() {
+  return (
+    <div className="bg-layers" aria-hidden="true">
+      <div className="bg-mesh" />
+      <div className="bg-grid" />
+      <div className="bg-grain" />
     </div>
   );
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
+        <BackgroundLayers />
         <header className="site-header">
-          <Link href="/" className="wordmark">
-            COVENANT
-          </Link>
-          <div className="header-right">
-            <nav>
-              <Link href="/">Leaderboard</Link>
-              <Link href="/verify">Verify a receipt</Link>
-            </nav>
-            <ProtocolStrip />
+          <div className="header-pill">
+            <Link href="/" className="wordmark">
+              COVENANT
+            </Link>
+            <div className="header-right">
+              <nav aria-label="Site">
+                <Link href="/">Leaderboard</Link>
+                <Link href="/verify">Verify a receipt</Link>
+              </nav>
+              <ProtocolStrip />
+            </div>
           </div>
         </header>
         <main>{children}</main>
+        <footer className="site-footer">
+          <div className="footer-inner">
+            <span>
+              Covenant - non-custodial proof of performance on Arbitrum.
+              Returns are computed from finalized checkpoints only.
+            </span>
+            <nav className="footer-nav" aria-label="Footer">
+              <Link href="/">Leaderboard</Link>
+              <Link href="/verify">Verify</Link>
+            </nav>
+          </div>
+        </footer>
       </body>
     </html>
   );
