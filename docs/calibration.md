@@ -83,13 +83,31 @@ python run_sft_prep.py --glob "out/backtest-calbase30d/decisions.jsonl" \
   --label-policy barrier --horizon 60 --out out/sft-laya-barrier.jsonl
 ```
 
-Stage 1 result so far (30d SOL-USD replay, 2026-09-25): see
-`out/calibration.json` and the commit message; the numbers are stamped
-there so they cannot silently drift. If the validation ECE of the
-calibrated map is not materially better than raw, and the gate
-simulation does not find a positive edge with >= 30 trades, the honest
-conclusion is "no tradeable signal yet" - which is exactly what Stage 2
-exists to fix.
+Stage 1 baseline result (30d SOL-USD 1m replay, 2026-08-27 to 2026-09-25,
+43,140 harvest ticks, measured 2026-09-26):
+
+- **The stock head has no tradeable signal.** Validation IC of the raw
+  outputs against forward returns: conviction -0.060, enter_p -0.027,
+  ls_spread +0.006 - noise, two of three slightly inverse.
+- **The fitted calibrator overfits and must not be used.** Only 300
+  tradeable (non-flat) train rows exist, and validation ECE got WORSE
+  after fitting: 0.160 raw -> 0.376 calibrated. `recommended_min_edge_pct`
+  is null and the gate stays OFF (rules.min_edge_pct = 0); the gate
+  simulation lost money at every edge setting.
+- **Label economics, now measured:** with 60 bps/side fees the net take
+  barrier sits at +/-2.8% within 60 bars (1 hour), and only ~1% of hours
+  move that far: 42,694 flat / 258 long / 187 short. The honest answer to
+  "should I trade this tick" is no 99% of the time. Consequences for
+  Stage 2: the fine-tune needs class weighting or flat subsampling, and
+  the tradeable-row count scales with horizon and the fee model (maker
+  fees or longer horizons widen the barrier set - strategy decisions, not
+  calibration decisions).
+- This is the required baseline, not a failure: it quantifies that the
+  stock head's probabilities carry no edge, so Stage 2 (fine-tune on
+  these labeled states + temperature refit) is the only remaining path,
+  and its acceptance test is now precise - beat ECE 0.16 and produce
+  positive gate-simulation PnL on the held-out window, or it does not
+  ship.
 
 ## Stage 2: fine-tune the decision head (touches the model)
 
