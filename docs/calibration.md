@@ -181,6 +181,51 @@ Shape of the work:
    validation ECE, IC, gate simulation. Ship it to the live loop only if
    the validation edge survives; otherwise say so and keep the old head.
 
+### Stage 2 execution runbook (local MPS path, 2026-09-26)
+
+The Kaggle notebook is the fallback; the built local path trains on this
+Mac (torch 2.14 MPS, fp32, stock checkpoint read-only from the HF cache).
+
+1. Train (overnight job, ~7h at the tested `--batch-states 8 --grad-accum
+   4`; batch 24 measured SLOWER per row on MPS, do not use it):
+
+       cd vouch && /Users/renzof/colibri/laya-venv/bin/python -u run_train_laya.py \
+           --data out/sft-laya-barrier.jsonl \
+           --out ~/colibri/checkpoints/laya-vouch-v1 --epochs 2 \
+           > ~/colibri/checkpoints/train-laya-v1.log 2>&1 &
+
+   Chronological holdout = the last 10% of rows (2026-09-22T23:50Z ..
+   2026-09-25T23:43Z); training never sees it; temperatures refit on it.
+
+2. Serve OUR checkpoint on its own port (:9989 stays stock):
+
+       /Users/renzof/colibri/laya-venv/bin/python run_serve_vouch_laya.py \
+           --checkpoint ~/colibri/checkpoints/laya-vouch-v1 --port 9988
+
+3. Replay the holdout window against it (~25 min: ~5.8k 1m bars at
+   ~0.25s/call) with the pin set so provenance is clean:
+
+       cd vouch && VOUCH_S1_URL=http://127.0.0.1:9988 \
+           VOUCH_S1_CHECKPOINT=laya-vouch-v1 \
+           /Users/renzof/colibri/laya-venv/bin/python run_backtest.py \
+           --data-harvest --minutes 5800 --tag calft-vouch
+
+4. Acceptance test (exit 0 = ship, 1 = do not ship):
+
+       /Users/renzof/colibri/laya-venv/bin/python run_holdout_eval.py \
+           --stock out/backtest-calbase30d/decisions.jsonl \
+           --ft out/backtest-calft-vouch/decisions.jsonl
+
+   Slices both logs to the never-trained window, barrier-labels them, and
+   compares raw served ECE and a no-fit gate simulation priced at each
+   head's own directional probability (nothing is fitted on ~58 non-flat
+   rows - a logistic there would be noise; the refit temperatures ARE the
+   fine-tuned head's calibration). Ship requires BOTH: ECE below stock's
+   on the identical window AND below the 0.16 full-window anchor, and a
+   viable gate edge (>= 30 trades, positive PnL) beating stock's best.
+   Measured stock bar on this window (2026-09-26): ECE 0.3229, best gate
+   edge 0.008 with 33 trades / +0.564 total PnL.
+
 Rules that keep the data honest:
 
 - Never mix OpenRouter decisions into calibration/SFT sets: it is a
