@@ -155,10 +155,10 @@ def main() -> None:
             "horizon": a.horizon,
             "tp_pct": a.tp,
             "sl_pct": a.sl,
-            "fee_pct": a.fee,
+            "fee_pct": a.fee_pct,
             "train_rows": len(train),
             "valid_rows": len(valid),
-            "gate_breakeven_p_win": round((a.fee + a.sl) / (a.tp + a.sl), 4),
+            "gate_breakeven_p_win": round((a.fee_pct + a.sl) / (a.tp + a.sl), 4),
         },
     )
     if cal is None:
@@ -185,7 +185,7 @@ def main() -> None:
         cal,
         a.tp,
         a.sl,
-        a.fee,
+        a.fee_pct,
         edges=[0.0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.016, 0.020],
     )
     viable = [s for s in sim if s["gated_trades"] >= 30 and s["total_pnl"] > 0]
