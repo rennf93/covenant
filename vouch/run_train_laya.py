@@ -11,7 +11,9 @@ weighted cross-entropy on the SFT rows (the served ENTRY question trio),
 then refits per-(question type, option-count) temperatures on a
 chronological HOLDOUT split that training never saw, and saves everything
 into --out as a complete local checkpoint directory (model.safetensors +
-tokenizer/ + rl_agent_config.json).
+tokenizer/ + rl_agent_config.json). A resume checkpoint (resume.pt) is
+written every --save-every optimizer steps; after an interruption, rerun
+with --resume to continue from it.
 
 Isolation: the stock checkpoint is only ever READ (via the HF cache); all
 writes go to --out. Serve the result with run_serve_vouch_laya.py on its
@@ -120,6 +122,13 @@ def main() -> None:
     ap.add_argument("--holdout-frac", type=float, default=0.1)
     ap.add_argument("--weight-power", type=float, default=0.5)
     ap.add_argument("--max-rows", type=int, default=0, help="cap rows (smoke tests)")
+    ap.add_argument(
+        "--save-every",
+        type=int,
+        default=400,
+        help="save a mid-run resume checkpoint every N optimizer steps (0 = never)",
+    )
+    ap.add_argument("--resume", action="store_true", help="continue from out/resume.pt if present")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--device", type=str, default=None, help="force mps/cuda/cpu")
     a = ap.parse_args()
@@ -197,15 +206,59 @@ def main() -> None:
         return a.lr * (0.1 + 0.9 * 0.5 * (1 + math.cos(math.pi * min(1.0, t))))
 
     pad = agent.tok.pad_token_id
+    out_dir = Path(a.out).expanduser()
+    resume_path = out_dir / "resume.pt"
+    is_mps = device.type == "mps"
     step = 0
+    resume_state = None
+    if a.resume and resume_path.exists():
+        resume_state = torch.load(resume_path, map_location="cpu", weights_only=False)
+        model.load_state_dict(resume_state["model"])
+        opt.load_state_dict(resume_state["opt"])
+        step = resume_state["step"]
+        # keep only the schedule fields: holding the loaded tensors would pin
+        # a second full copy of weights + optimizer state (measured +5GB)
+        resume_state = {
+            "epoch": resume_state["epoch"],
+            "pos": resume_state["pos"],
+            "order": resume_state["order"],
+        }
+        print(
+            f"resumed from {resume_path}: epoch {resume_state['epoch']} "
+            f"pos {resume_state['pos']} step {step}",
+            flush=True,
+        )
+
+    def save_resume(epoch: int, pos: int, order: list[int]) -> None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "opt": opt.state_dict(),
+                "step": step,
+                "epoch": epoch,
+                "pos": pos,
+                "order": order,
+            },
+            resume_path,
+        )
+
     for epoch in range(1, a.epochs + 1):
         order = list(range(len(examples)))
         random.shuffle(order)
+        begin = 0
+        if resume_state is not None:
+            if resume_state["epoch"] == epoch:
+                order = resume_state["order"]
+                begin = resume_state["pos"]
+            elif epoch > resume_state["epoch"]:
+                begin = 0
         t0 = time.time()
         running = 0.0
+        win_batches = 0
         seen = 0
         opt.zero_grad()
-        for start in range(0, len(order), a.batch_states):
+        for start in range(begin, len(order), a.batch_states):
             batch = [examples[i] for i in order[start : start + a.batch_states]]
             groups = [ex["items"] for ex in batch]
             b = collate_items(groups, pad)
@@ -231,6 +284,7 @@ def main() -> None:
                     row += 1
             (loss / wsum / a.grad_accum).backward()
             running += loss.item() / wsum
+            win_batches += 1
             seen += len(batch)
             if (start // a.batch_states) % a.grad_accum == a.grad_accum - 1:
                 step += 1
@@ -239,14 +293,23 @@ def main() -> None:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 opt.step()
                 opt.zero_grad()
-            if seen % (a.batch_states * 100) < a.batch_states:
-                avg = running / max(1, seen // a.batch_states)
+                if a.save_every and step % a.save_every == 0:
+                    save_resume(epoch, start + a.batch_states, order)
+            # Variable-length batches fragment the MPS allocator pool and it
+            # never returns freed blocks to the OS: measured growth to 29GB
+            # and swap death in 3h without this flush (2026-09-26).
+            if win_batches >= 100:
+                if is_mps:
+                    torch.mps.empty_cache()
+                avg = running / win_batches
+                mem = torch.mps.current_allocated_memory() / 2**20 if is_mps else 0.0
                 print(
                     f"epoch {epoch} rows {seen}/{len(examples)} loss {avg:.4f} "
-                    f"lr {lr_at(step):.2e} ({time.time() - t0:.0f}s)",
+                    f"lr {lr_at(step):.2e} mps {mem:.0f}MB ({time.time() - t0:.0f}s)",
                     flush=True,
                 )
                 running = 0.0
+                win_batches = 0
         print(f"epoch {epoch} done in {time.time() - t0:.0f}s", flush=True)
         model.eval()
         model.train()
@@ -294,7 +357,6 @@ def main() -> None:
         print(f"  {bucket}: T = {t:.4f} ({len(acc['logits'])} holdout rows)", flush=True)
 
     # --- save a complete checkpoint directory ------------------------------
-    out_dir = Path(a.out).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     sd = {k: v.detach().contiguous().cpu() for k, v in model.state_dict().items()}
     save_file(sd, str(out_dir / "model.safetensors"))
@@ -315,6 +377,7 @@ def main() -> None:
         "date": time.strftime("%Y-%m-%d"),
     }
     (out_dir / "rl_agent_config.json").write_text(json.dumps(cfg, indent=2))
+    resume_path.unlink(missing_ok=True)
     print(f"saved checkpoint to {out_dir}", flush=True)
     print(
         "next: serve it with run_serve_vouch_laya.py --checkpoint "
