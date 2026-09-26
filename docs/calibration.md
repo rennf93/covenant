@@ -226,6 +226,36 @@ Mac (torch 2.14 MPS, fp32, stock checkpoint read-only from the HF cache).
    Measured stock bar on this window (2026-09-26): ECE 0.3229, best gate
    edge 0.008 with 33 trades / +0.564 total PnL.
 
+### Stage 2 RESULT (2026-09-26): FAIL - the fine-tuned head does not ship
+
+The full run (2 epochs, 38,825 train rows, launchd-isolated, leak-hardened,
+commits 3031a11/64db253) completed and saved
+`~/colibri/checkpoints/laya-vouch-v1`; the acceptance replay ran the same
+holdout window through it (`out/backtest-calft-vouch`, 5,740 decisions,
+provenance-pinned `vouch-v1` on :9988). Verdict, on 4,313 window entry
+rows / 58 barrier-tradeable:
+
+- ECE raw: fine-tuned 0.2961 vs stock 0.3229 - slightly better, nowhere
+  near the 0.16 anchor. FAIL criterion 1.
+- Gate sim best: fine-tuned +0.184 at edge 0.0 (58 trades) vs stock +0.564
+  at edge 0.008 (33 trades). FAIL criterion 2.
+- ICs moved the wrong way where it matters: ls_spread 0.0502 -> 0.0394,
+  conviction -0.0332 -> -0.0665; only enter_p improved (-0.0458 -> -0.0005).
+
+Interpretation: the ~0 training loss with T=5.0 clamped temperature refits
+is the memorization signature - the model aced the 99%-flat studied window
+without learning transferable directional signal, and the max-clamped
+smoothing flattened what spread remained (stock's shipped choice:3-5
+T=1.76 preserved more). The pre-registered rule holds: rails stay, EV gate
+stays OFF, stock english keeps serving. Cheapest follow-up probe (minutes,
+not hours): re-refit temperatures with a lower clamp (e.g. 2.5) and re-run
+the eval - the checkpoint's raw logits can be re-tempered without
+retraining. Structural fixes are economics decisions for the user: longer
+barrier horizons, maker fees, or looser brackets to widen the 58-row
+tradeable set; or more diverse training data (the 30-day window has one
+regime). :9988 server relaunch: run_serve_vouch_laya.py --checkpoint
+~/colibri/checkpoints/laya-vouch-v1 --port 9988.
+
 Rules that keep the data honest:
 
 - Never mix OpenRouter decisions into calibration/SFT sets: it is a
