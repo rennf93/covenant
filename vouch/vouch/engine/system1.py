@@ -153,6 +153,11 @@ class System1:
             "probs": {k: float(v) for k, v in probs.items()},  # FULL vector, for analysis/SFT
             "final_action": direction if ok else "flat",
             "veto": veto,
+            # The exact payload sent to the head. SFT bakes MUST use this, not
+            # the compact state - training on a different rendering than
+            # serving is the distribution shift that invalidated the first
+            # Stage 2 acceptance (2026-09-26).
+            "wire": {"state": state, "questions": questions},
         }
 
     def _decide_exit(self, state: dict, tick: Tick, broker: Broker, rules: Rules) -> dict:

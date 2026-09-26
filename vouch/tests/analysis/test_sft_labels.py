@@ -79,18 +79,25 @@ class ConvictionPolicyTest(unittest.TestCase):
 
 
 class BuildDatasetTrioTest(unittest.TestCase):
+    @staticmethod
+    def _entry_row(i: int, price: float) -> dict:
+        return {
+            "price": price,
+            "ts": f"t{i}",
+            # the compact state: NOT what the bake may train on
+            "state": {"market": f"x{i}"},
+            "decision": {
+                "mode": "entry",
+                "probs": {"long": 0.4, "flat": 0.3, "short": 0.3},
+                # the byte-exact payload the engine sent the head
+                "wire": {"state": {"market": f"wire {i}"}, "questions": ENTRY_QUESTIONS},
+            },
+        }
+
     def test_rows_carry_the_full_served_question_trio(self):
         # a price path with one net-take up move inside the horizon
         prices = [100.0, 100.5, 101.0, 101.5, 102.0, 103.0]
-        rows = [
-            {
-                "price": p,
-                "ts": f"t{i}",
-                "state": {"market": f"x{i}"},
-                "decision": {"mode": "entry", "probs": {"long": 0.4, "flat": 0.3, "short": 0.3}},
-            }
-            for i, p in enumerate(prices)
-        ]
+        rows = [self._entry_row(i, p) for i, p in enumerate(prices)]
         ds = build_dataset(
             rows, horizon=4, threshold=0.004, policy="barrier", tp_pct=TP, sl_pct=SL, fee_pct=FEE
         )
@@ -98,9 +105,29 @@ class BuildDatasetTrioTest(unittest.TestCase):
         for pair in ds:
             self.assertEqual(set(pair["answers"].keys()), {"action", "conviction", "enter_now"})
             self.assertEqual(pair["questions"], ENTRY_QUESTIONS)
+            # byte-pin rule: the trained state is the wire payload, not the
+            # compact row state
+            self.assertTrue(pair["state"].get("market", "").startswith("wire "))
             self.assertIn(pair["answers"]["action"]["choice"], ("long", "flat", "short"))
             self.assertTrue(0 <= pair["answers"]["conviction"]["score"] <= 4)
             self.assertIn(pair["answers"]["enter_now"]["noul"], (0.0, 1.0))
+
+    def test_rows_without_wire_payload_are_skipped(self):
+        # pre-wire replays cannot be trained on without a train/serve
+        # format mismatch (stage 2, 2026-09-26) - they must not silently
+        # fall back to the compact state
+        prices = [100.0, 100.5, 101.0, 101.5, 102.0, 103.0]
+        rows = [self._entry_row(i, p) for i, p in enumerate(prices)]
+        for r in rows[:3]:
+            del r["decision"]["wire"]
+        ds = build_dataset(
+            rows, horizon=4, threshold=0.004, policy="barrier", tp_pct=TP, sl_pct=SL, fee_pct=FEE
+        )
+        # 3 wire-less rows skipped, and the last row always drops (no future
+        # bar to label against)
+        self.assertEqual(len(ds), len(prices) - 3 - 1)
+        for pair in ds:
+            self.assertTrue(pair["state"].get("market", "").startswith("wire"))
 
     def test_exit_rows_are_skipped(self):
         rows = [

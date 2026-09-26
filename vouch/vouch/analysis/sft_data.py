@@ -150,6 +150,7 @@ def build_dataset(
     paired = [(r, float(r["price"])) for r in rows if r.get("price") is not None]
     prices = [p for _, p in paired]
     tp_net = max(tp_pct - fee_pct, 0.0)
+    legacy_skipped = 0
     out: list[dict] = []
     for i, (r, price) in enumerate(paired):
         if i + 1 >= len(prices):
@@ -189,10 +190,20 @@ def build_dataset(
             "conviction": {"score": conviction},
             "enter_now": {"noul": 1.0 if label != "flat" else 0.0},
         }
+        # Byte-pin rule: train on EXACTLY what the engine sent the head. The
+        # decision row's wire payload is the authoritative state+questions;
+        # the compact row["state"] is a DIFFERENT rendering and fine-tuning
+        # on it while serving the prose state is the distribution shift that
+        # invalidated the first Stage 2 acceptance (2026-09-26). Rows from
+        # pre-wire replays are skipped and counted - re-run the replay.
+        wire = d.get("wire")
+        if wire is None:
+            legacy_skipped += 1
+            continue
         out.append(
             {
-                "state": r["state"],
-                "questions": ENTRY_QUESTIONS,
+                "state": wire["state"],
+                "questions": wire["questions"],
                 "answers": answers,
                 "meta": {
                     "ts": r.get("ts"),
@@ -201,6 +212,15 @@ def build_dataset(
                     "source_probs": d.get("probs"),
                 },
             }
+        )
+    if legacy_skipped:
+        from vouch.logging import get_logger
+
+        get_logger(__name__).warning(
+            "SFT bake skipped %d entry rows without a recorded wire payload "
+            "(pre-wire replay); re-run the replay or they are untrainable "
+            "without a train/serve format mismatch",
+            legacy_skipped,
         )
     return out
 
