@@ -41,13 +41,19 @@ def run_backtest(
     warmup: int = 60,
     use_s2: bool = True,
     data_harvest: bool = False,
+    days_back: int = 0,
 ) -> dict:
     """data_harvest: force-close any position right after it opens (and park
     the kill-switch halt) so the loop keeps producing flat-state ENTRY
     decisions over the whole history. This is a DATA mode: it maximizes
-    state diversity for calibration/SFT and its PnL is meaningless."""
+    state diversity for calibration/SFT and its PnL is meaningless.
+    days_back: end the window N days in the past (0 = now) so historical
+    chunks can be recorded without overlapping newer ones."""
     client = httpx.Client()
-    bars = fetch_candles(client, product=product, minutes=minutes)
+    end_ts = int(time.time()) - days_back * 86400 if days_back else None
+    bars = fetch_candles(
+        client, product=product, minutes=minutes, end_ts=end_ts, require_complete=True
+    )
     client.close()
     if len(bars) < warmup + 30:
         raise SystemExit(f"only got {len(bars)} bars from Coinbase; need >= {warmup + 30}")

@@ -39,35 +39,65 @@ class Bar:
 
 
 def fetch_candles(
-    client: httpx.Client, product: str = "SOL-USD", minutes: int = 1440, end_ts: int | None = None
+    client: httpx.Client,
+    product: str = "SOL-USD",
+    minutes: int = 1440,
+    end_ts: int | None = None,
+    require_complete: bool = False,
 ) -> list[Bar]:
-    """Pull `minutes` of 1m candles ending at end_ts (default: now)."""
+    """Pull `minutes` of 1m candles ending at end_ts (default: now).
+
+    Each 300-bar chunk is retried on a short/empty response: a silent hole
+    in the middle of a recording session poisons everything downstream
+    (labels, calibration, SFT), so holes are never acceptable by default.
+    With require_complete=True, any missing minute raises instead of
+    returning a gapped series - used by recording runs."""
     end = end_ts or int(time.time())
     start = end - minutes * 60
-    bars: list[Bar] = []
+    bars_by_ts: dict[int, Bar] = {}
     cursor = start
     while cursor < end:
         chunk_end = min(cursor + 300 * 60, end)
-        r = client.get(
-            EXCHANGE_CANDLES.format(product=product),
-            params={"granularity": GRANULARITY_1M, "start": cursor, "end": chunk_end},
-            timeout=30,
-        )
-        r.raise_for_status()
-        # rows are [time, low, high, open, close, volume], newest first
-        for row in r.json():
-            bars.append(
-                Bar(
-                    ts=int(row[0]),
-                    open=float(row[3]),
-                    high=float(row[2]),
-                    low=float(row[1]),
-                    close=float(row[4]),
-                    volume=float(row[5]),
-                )
+        rows: list[list[Any]] = []
+        for attempt in range(3):
+            r = client.get(
+                EXCHANGE_CANDLES.format(product=product),
+                params={"granularity": GRANULARITY_1M, "start": cursor, "end": chunk_end},
+                timeout=30,
+            )
+            r.raise_for_status()
+            rows = r.json()
+            expected = max(1, (chunk_end - cursor) // 60)
+            if len(rows) >= expected * 0.95:
+                break
+            time.sleep(2.0 * (attempt + 1))  # short chunk: throttle or hiccup, back off
+        for row in rows:
+            # rows are [time, low, high, open, close, volume], newest first
+            bars_by_ts[int(row[0])] = Bar(
+                ts=int(row[0]),
+                open=float(row[3]),
+                high=float(row[2]),
+                low=float(row[1]),
+                close=float(row[4]),
+                volume=float(row[5]),
             )
         cursor = chunk_end
-    bars.sort(key=lambda b: b.ts)
+    bars = [bars_by_ts[ts] for ts in sorted(bars_by_ts)]
+    if require_complete:
+        # minute keys in [start, end) number exactly `minutes`; anything less
+        # means the venue dropped history - refuse rather than poison
+        # downstream labels/calibration with silent holes
+        missing = minutes - len(bars)
+        if missing > 0:
+            gap_ranges = []
+            for a, b in zip(bars, bars[1:], strict=False):
+                if b.ts - a.ts > 60:
+                    gap_ranges.append(f"{a.ts}..{b.ts} ({(b.ts - a.ts) // 60}m)")
+            raise SystemExit(
+                f"fetch_candles: {missing} of {minutes} 1m bars missing from "
+                f"{product} [{start}..{end}] - gaps: {gap_ranges[:5]}. "
+                "Refusing to hand back incomplete data."
+            )
     return bars
 
 

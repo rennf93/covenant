@@ -40,6 +40,13 @@ if __name__ == "__main__":
         "ENTRY decision: maximum state diversity for calibration/SFT; PnL is "
         "meaningless in this mode",
     )
+    ap.add_argument(
+        "--days-back",
+        type=int,
+        default=0,
+        help="end the window N days in the past (0 = now); record historical "
+        "chunks with --data-harvest without overlapping newer ones",
+    )
     a = ap.parse_args()
 
     if a.fee_bps is not None:
@@ -56,5 +63,6 @@ if __name__ == "__main__":
         warmup=a.warmup,
         use_s2=not a.no_s2,
         data_harvest=a.data_harvest,
+        days_back=a.days_back,
     )
     print(json.dumps(summary, indent=2))
