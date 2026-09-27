@@ -267,3 +267,32 @@ Rules that keep the data honest:
 - Labels, gates, and costs must share one horizon and one fee model.
   The defaults in `run_calibration.py` / `run_sft_prep.py` match the
   served brackets; if you change the brackets in the UI, re-run both.
+
+### Stage 2 v2 RESULT (2026-09-27): FAIL - and the remaining wall is direction, not calibration
+
+v2 (wire-format data, h240/tp3/sl1.5/taker economics, 9,312 tradeable
+train rows, commit 1233460 lineage) trained clean overnight and the
+acceptance ran on the never-trained window with both heads under the SAME
+new brackets:
+
+- ECE: fine-tuned 0.1138 vs stock 0.1172 - both honest, FT slightly
+  better, both below the 0.16 anchor. First time the ECE criterion PASSES.
+- enter_p IC: +0.147 (first positive pressure signal measured on vouch).
+- Direction: ls_spread IC -0.1096 (INVERTED), conviction -0.0881. Gate
+  simulation loses at every edge (per-trade -1.4% at edge 0); stock also
+  has no viable edge under the new brackets (best -0.207). FAIL on the
+  PnL criterion; nothing ships.
+- Reading: the plumbing fixes worked - calibration is no longer the
+  bottleneck. The wall is DIRECTIONAL signal: neither head can pick long
+  vs short at a win rate above the 0.600 breakeven. The FT inversion
+  (-0.11) is measurable but in-sample; confirming or killing it requires
+  OUT-OF-SAMPLE months (the user's free-data step), never a same-window
+  flip. Also noted: the 5,200-minute replay request yielded only ~3,100
+  usable bars - the candle lookback cap must be measured before promising
+  more-history scale.
+
+Verdict file ~/colibri/checkpoints/acceptance-verdict-v2.txt; FT replay
+out/backtest-calft-vouch-v2. Rails stay, EV gate OFF, stock english
+serves. Stale-server lesson: the :9988 health check must be asserted to
+report the EXPECTED checkpoint name before any replay (a v1 leftover
+almost invalidated this run; the routing pin warning is not enough).
