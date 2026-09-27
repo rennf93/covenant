@@ -84,20 +84,51 @@ def fetch_candles(
         cursor = chunk_end
     bars = [bars_by_ts[ts] for ts in sorted(bars_by_ts)]
     if require_complete:
-        # minute keys in [start, end) number exactly `minutes`; anything less
-        # means the venue dropped history - refuse rather than poison
-        # downstream labels/calibration with silent holes
-        missing = minutes - len(bars)
-        if missing > 0:
-            gap_ranges = []
-            for a, b in zip(bars, bars[1:], strict=False):
-                if b.ts - a.ts > 60:
-                    gap_ranges.append(f"{a.ts}..{b.ts} ({(b.ts - a.ts) // 60}m)")
-            raise SystemExit(
-                f"fetch_candles: {missing} of {minutes} 1m bars missing from "
-                f"{product} [{start}..{end}] - gaps: {gap_ranges[:5]}. "
-                "Refusing to hand back incomplete data."
+        # Dead minutes (no trades -> venue emits no bar) are real market
+        # events: reconstruct them as flat zero-volume bars at the last known
+        # close, capped at gap_fill_max per stretch. A dead stretch BIGGER
+        # than the cap is a feed outage, not a quiet market, and refuses the
+        # series. Filled minutes are always counted out loud - silent holes
+        # are never acceptable downstream.
+        gap_fill_max = 15
+        filled: list[Bar] = []
+        skipped = 0
+        run = 0
+        idx = 0
+        ts = start
+        prev_close = bars[0].open if bars else 0.0
+        while ts < end:
+            if idx < len(bars) and bars[idx].ts == ts:
+                filled.append(bars[idx])
+                prev_close = bars[idx].close
+                idx += 1
+                run = 0
+            else:
+                run += 1
+                if run > gap_fill_max:
+                    raise SystemExit(
+                        f"fetch_candles: {run}-minute dead stretch at ts {ts} in "
+                        f"{product}; refusing incomplete data"
+                    )
+                skipped += 1
+                filled.append(
+                    Bar(
+                        ts=ts,
+                        open=prev_close,
+                        high=prev_close,
+                        low=prev_close,
+                        close=prev_close,
+                        volume=0.0,
+                    )
+                )
+            ts += 60
+        if skipped:
+            print(
+                f"fetch_candles: filled {skipped} dead minutes as flat zero-volume "
+                f"bars ({product}, {minutes}m window)",
+                flush=True,
             )
+        bars = filled
     return bars
 
 

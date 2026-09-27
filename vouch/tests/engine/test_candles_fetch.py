@@ -45,17 +45,42 @@ class FetchCandlesCompletenessTest(unittest.TestCase):
         # 6 minutes requested, 6 rows returned: fine with require_complete
         end = 1_800_000_000 - 1_800_000_000 % 60
         client = FakeClient([chunk_rows(end - 6 * 60, 6)])
-        bars = fetch_candles(
-            client, minutes=6, end_ts=end, require_complete=True
-        )
+        bars = fetch_candles(client, minutes=6, end_ts=end, require_complete=True)
         self.assertEqual(len(bars), 6)
 
-    def test_missing_minutes_raise_when_required(self):
-        # venue returns only 4 of 6 minutes: refuse the series
+    def test_short_tail_is_filled_when_required(self):
+        # venue returns 4 of 6 minutes (trailing dead minutes): the tail is
+        # reconstructed flat at the last close, series stays complete
         end = 1_800_000_000 - 1_800_000_000 % 60
         client = FakeClient([chunk_rows(end - 6 * 60, 4)])
+        bars = fetch_candles(client, minutes=6, end_ts=end, require_complete=True)
+        self.assertEqual(len(bars), 6)
+        self.assertEqual([b.volume for b in bars], [3.0, 3.0, 3.0, 3.0, 0.0, 0.0])
+
+    def test_small_hole_is_filled_with_flat_bars(self):
+        # 8 real minutes with a 2-minute dead stretch inside: filled as flat
+        # zero-volume bars at the previous close, series stays complete
+        end = 1_800_000_000 - 1_800_000_000 % 60
+        start = end - 8 * 60
+        real = chunk_rows(start, 8)
+        # drop two minutes in the middle (newest-first list)
+        with_hole = [r for r in real if r[0] not in (start + 3 * 60, start + 4 * 60)]
+        client = FakeClient([with_hole])
+        bars = fetch_candles(client, minutes=8, end_ts=end, require_complete=True)
+        self.assertEqual(len(bars), 8)
+        self.assertEqual([b.ts for b in bars], [start + k * 60 for k in range(8)])
+        dead = [b for b in bars if b.ts in (start + 3 * 60, start + 4 * 60)]
+        self.assertTrue(all(b.volume == 0.0 and b.close == 1.5 for b in dead))
+
+    def test_hole_beyond_cap_refuses(self):
+        # a 20-minute dead stretch inside a 30-minute request: refuse
+        end = 1_800_000_000 - 1_800_000_000 % 60
+        start = end - 30 * 60
+        real = chunk_rows(start, 30)
+        keep = [r for r in real if r[0] < start + 5 * 60 or r[0] >= start + 25 * 60]
+        client = FakeClient([keep])
         with self.assertRaises(SystemExit):
-            fetch_candles(client, minutes=6, end_ts=end, require_complete=True)
+            fetch_candles(client, minutes=30, end_ts=end, require_complete=True)
 
     def test_missing_minutes_tolerated_when_not_required(self):
         end = 1_800_000_000 - 1_800_000_000 % 60
