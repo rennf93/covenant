@@ -42,10 +42,11 @@ if __name__ == "__main__":
     )
     ap.add_argument(
         "--days-back",
-        type=int,
+        type=float,
         default=0,
-        help="end the window N days in the past (0 = now); record historical "
-        "chunks with --data-harvest without overlapping newer ones",
+        help="end the window N days in the past (0 = now; fractions allowed "
+        "for splitting around data holes); record historical chunks with "
+        "--data-harvest without overlapping newer ones",
     )
     a = ap.parse_args()
 

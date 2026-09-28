@@ -52,7 +52,7 @@ def fetch_candles(
     (labels, calibration, SFT), so holes are never acceptable by default.
     With require_complete=True, any missing minute raises instead of
     returning a gapped series - used by recording runs."""
-    end = end_ts or int(time.time())
+    end = int(int(end_ts) if end_ts else time.time()) // 60 * 60  # ints: the API 400s on floats
     start = end - minutes * 60
     bars_by_ts: dict[int, Bar] = {}
     cursor = start

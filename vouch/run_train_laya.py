@@ -129,6 +129,12 @@ def main() -> None:
         help="save a mid-run resume checkpoint every N optimizer steps (0 = never)",
     )
     ap.add_argument("--resume", action="store_true", help="continue from out/resume.pt if present")
+    ap.add_argument(
+        "--amp",
+        action="store_true",
+        help="fp16 mixed precision on CUDA (T4-class GPUs have fp16, not bf16, "
+        "tensor cores); ignored on mps/cpu - fp16 autocast is unstable there",
+    )
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--device", type=str, default=None, help="force mps/cuda/cpu")
     a = ap.parse_args()
@@ -209,6 +215,11 @@ def main() -> None:
     out_dir = Path(a.out).expanduser()
     resume_path = out_dir / "resume.pt"
     is_mps = device.type == "mps"
+    # fp16 autocast on CUDA (T4s have fp16 tensor cores, no bf16): forward in
+    # fp16, losses/backward in fp32 with a GradScaler. Ignored on mps/cpu,
+    # where fp16 autocast is unstable for training.
+    use_amp = bool(a.amp) and device.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     step = 0
     resume_state = None
     if a.resume and resume_path.exists():
@@ -262,13 +273,15 @@ def main() -> None:
             batch = [examples[i] for i in order[start : start + a.batch_states]]
             groups = [ex["items"] for ex in batch]
             b = collate_items(groups, pad)
-            logits, _ = model(
-                b["input_ids"].to(device),
-                b["attention_mask"].to(device),
-                b["marker_pos"].to(device),
-                b["marker_mask"].to(device),
-                b["qtype"].to(device),
-            )
+            with torch.autocast("cuda", dtype=torch.float16, enabled=use_amp):
+                logits, _ = model(
+                    b["input_ids"].to(device),
+                    b["attention_mask"].to(device),
+                    b["marker_pos"].to(device),
+                    b["marker_mask"].to(device),
+                    b["qtype"].to(device),
+                )
+            logits = logits.float()  # logsumexp/CE in fp32 even under autocast
             wsum = 0.0
             loss = logits.new_zeros(())
             row = 0
@@ -282,7 +295,7 @@ def main() -> None:
                     loss = loss + w * ce
                     wsum += w
                     row += 1
-            (loss / wsum / a.grad_accum).backward()
+            scaler.scale(loss / wsum / a.grad_accum).backward()
             running += loss.item() / wsum
             win_batches += 1
             seen += len(batch)
@@ -290,8 +303,10 @@ def main() -> None:
                 step += 1
                 for g in opt.param_groups:
                     g["lr"] = lr_at(step)
+                scaler.unscale_(opt)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                opt.step()
+                scaler.step(opt)
+                scaler.update()
                 opt.zero_grad()
                 if a.save_every and step % a.save_every == 0:
                     save_resume(epoch, start + a.batch_states, order)
