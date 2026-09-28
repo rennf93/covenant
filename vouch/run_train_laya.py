@@ -255,6 +255,12 @@ def main() -> None:
         )
 
     for epoch in range(1, a.epochs + 1):
+        if resume_state is not None and epoch < resume_state["epoch"]:
+            # the checkpoint's weights already include this epoch's training;
+            # re-running it would waste hours at a decayed LR (measured:
+            # an epoch-2 checkpoint restarted at epoch 1, 2026-09-28)
+            print(f"epoch {epoch}: already covered by the resume checkpoint - skipping", flush=True)
+            continue
         order = list(range(len(examples)))
         random.shuffle(order)
         begin = 0
