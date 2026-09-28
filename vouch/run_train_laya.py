@@ -294,7 +294,7 @@ def main() -> None:
             for ex in batch:
                 for j, qid in enumerate(qids):
                     k = len(ex["items"][j]["markers"])
-                    gold = ex["golds"][qid]
+                    gold = ex["items"][j]["gold"]
                     w = ex["weights"][qid]
                     z = logits[row, :k]
                     ce = -(z[gold] - torch.logsumexp(z, 0))
