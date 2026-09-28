@@ -66,12 +66,19 @@ def main() -> None:
 
     env = os.environ.copy()
     env["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+    # persist the HF cache (stock checkpoint download) across sessions, and
+    # defragment CUDA allocations (the T4 OOM'd on fragmentation)
+    env["HF_HOME"] = str(WORK / "hf")
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
     def run(cmd: list[str]) -> None:
         print(f"\n$ {' '.join(str(c) for c in cmd)}", flush=True)
         r = subprocess.run([str(c) for c in cmd], env=env)
         if r.returncode != 0:
             raise SystemExit(f"ERROR: command failed with exit code {r.returncode}")
+
+    # the laya package is not in the Kaggle image; internet is required
+    run([sys.executable, "-m", "pip", "install", "-q", "laya==0.3.20"])
 
     # self-test: proves CUDA + fp16 autocast + data + script before the long run
     run(
@@ -108,28 +115,34 @@ def main() -> None:
     else:
         print("no prior resume.pt found - starting fresh")
 
-    run(
-        [
-            sys.executable,
-            script,
-            "--data",
-            data,
-            "--out",
-            DATA_OUT,
-            "--epochs",
-            "2",
-            "--batch-states",
-            "16",
-            "--grad-accum",
-            "2",
-            "--amp",
-            "--save-every",
-            "200",
-            "--resume",
-            "--device",
-            "cuda",
-        ]
-    )
+    # Main run. Attempt 1 at batch 16 (fastest if it fits the T4). On OOM it
+    # retries ONCE at the proven batch 8 with --resume: the trainer wrote
+    # resume.pt every 200 steps, so at most ~30 min of work is redone. A
+    # 12h session kill is handled OUTSIDE (Save Version + re-attach).
+    main_base = [
+        sys.executable,
+        script,
+        "--data",
+        data,
+        "--out",
+        DATA_OUT,
+        "--epochs",
+        "2",
+        "--amp",
+        "--save-every",
+        "200",
+        "--resume",
+        "--device",
+        "cuda",
+    ]
+    try:
+        run(main_base + ["--batch-states", "16", "--grad-accum", "2"])
+    except SystemExit as e:
+        print(
+            f"\n=== main run attempt 1 failed ({e}); retrying at batch 8 with resume ===",
+            flush=True,
+        )
+        run(main_base + ["--batch-states", "8", "--grad-accum", "4"])
 
     print("\n=== DONE. refit temperatures and files: ===")
     import json
