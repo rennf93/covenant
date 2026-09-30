@@ -1,0 +1,69 @@
+You are analyzing flagged moments in SOL/USDC 1-minute trading data. The market WILL move directionally in each case - your only job is to pick WHICH SIDE.
+
+For EACH moment, output "long" if you judge demonstrated strength implying price more likely rises ~3% before it falls ~1.5% within the next 4 hours, "short" if demonstrated weakness implies the fall comes first. Use everything in the report: returns, volume, range position, the recent price path, and the compass intensity readings (which indicate how notable the moment is, not direction).
+
+Commit to a side for EVERY moment - abstention is not an option. Also rate your confidence 0.0-1.0.
+
+OUTPUT: a single JSON array, one object per moment, in the same order as given:
+[{"ts": "<the moment's ts>", "choice": "long" | "short", "confidence": 0.0-1.0}, ...]
+No other text.
+
+
+[
+ {
+  "ts": "2026-09-29T10:49:00+00:00",
+  "report": "Moment: 2026-09-29T10:49:00+00:00 | SOL/USDC price 119.36\nReturns: 1m +0.00%, 15m -0.01%, 60m -0.40%\nVolume ratio 0.54 vs average | 60m range 119.19-120.03 (position in range 0.22)\nRecent 15 closes: 119.34 119.34 119.29 119.26 119.23 119.37 119.26 119.26 119.19 119.25 119.30 119.42 119.32 119.36 119.36\nCompass reading (intensity only, no direction): upward pressure 0.22, downward 0.41, no-direction 0.37, conviction 0/4, entry pressure 0.63, direction spread -0.19. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-06T02:33:00+00:00",
+  "report": "Moment: 2026-09-06T02:33:00+00:00 | SOL/USDC price 104.39\nReturns: 1m +0.06%, 15m +0.34%, 60m +0.70%\nVolume ratio 9.57 vs average | 60m range 103.69-104.39 (position in range 0.86)\nRecent 15 closes: 104.02 103.95 103.99 104.01 104.06 104.10 104.08 104.02 104.06 104.14 104.11 104.18 104.27 104.33 104.39\nCompass reading (intensity only, no direction): upward pressure 0.19, downward 0.26, no-direction 0.54, conviction 0/4, entry pressure 0.46, direction spread -0.07. Flagged for: volume."
+ },
+ {
+  "ts": "2026-09-15T18:36:00+00:00",
+  "report": "Moment: 2026-09-15T18:36:00+00:00 | SOL/USDC price 99.12\nReturns: 1m -0.50%, 15m -0.35%, 60m -0.82%\nVolume ratio 5.55 vs average | 60m range 99.12-100.56 (position in range 0.04)\nRecent 15 closes: 99.55 99.51 99.58 99.48 99.54 99.48 99.70 99.88 99.74 99.72 99.73 99.30 99.67 99.62 99.12\nCompass reading (intensity only, no direction): upward pressure 0.19, downward 0.33, no-direction 0.48, conviction 0/4, entry pressure 0.52, direction spread -0.14. Flagged for: volume."
+ },
+ {
+  "ts": "2026-09-29T12:49:00+00:00",
+  "report": "Moment: 2026-09-29T12:49:00+00:00 | SOL/USDC price 120.54\nReturns: 1m -0.08%, 15m +0.24%, 60m +0.30%\nVolume ratio 0.27 vs average | 60m range 119.96-120.91 (position in range 0.57)\nRecent 15 closes: 120.33 120.33 120.64 120.91 120.74 120.64 120.68 120.62 120.61 120.70 120.44 120.44 120.53 120.64 120.54\nCompass reading (intensity only, no direction): upward pressure 0.24, downward 0.43, no-direction 0.33, conviction 0/4, entry pressure 0.67, direction spread -0.19. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-06T08:34:00+00:00",
+  "report": "Moment: 2026-09-06T08:34:00+00:00 | SOL/USDC price 105.03\nReturns: 1m -0.02%, 15m -0.16%, 60m -0.01%\nVolume ratio 0.11 vs average | 60m range 104.90-105.35 (position in range 0.28)\nRecent 15 closes: 105.19 105.15 105.15 105.23 105.26 105.24 105.22 105.20 105.22 105.14 105.07 105.04 105.06 105.05 105.03\nCompass reading (intensity only, no direction): upward pressure 0.20, downward 0.44, no-direction 0.36, conviction 0/4, entry pressure 0.64, direction spread -0.24. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-10T10:14:00+00:00",
+  "report": "Moment: 2026-09-10T10:14:00+00:00 | SOL/USDC price 101.15\nReturns: 1m +0.13%, 15m +0.05%, 60m -0.06%\nVolume ratio 8.60 vs average | 60m range 100.81-101.37 (position in range 0.63)\nRecent 15 closes: 101.02 101.03 101.24 101.27 101.20 101.23 101.24 101.15 101.10 101.03 101.10 101.12 101.04 101.02 101.15\nCompass reading (intensity only, no direction): upward pressure 0.22, downward 0.46, no-direction 0.32, conviction 0/4, entry pressure 0.68, direction spread -0.24. Flagged for: pressure, volume."
+ },
+ {
+  "ts": "2026-09-10T11:25:00+00:00",
+  "report": "Moment: 2026-09-10T11:25:00+00:00 | SOL/USDC price 101.25\nReturns: 1m -0.09%, 15m +0.21%, 60m +0.15%\nVolume ratio 4.96 vs average | 60m range 100.87-101.34 (position in range 0.80)\nRecent 15 closes: 100.94 100.93 101.02 101.08 101.24 101.19 101.18 101.24 101.23 101.28 101.30 101.33 101.34 101.34 101.25\nCompass reading (intensity only, no direction): upward pressure 0.21, downward 0.44, no-direction 0.35, conviction 0/4, entry pressure 0.65, direction spread -0.23. Flagged for: pressure, volume."
+ },
+ {
+  "ts": "2026-09-23T06:48:00+00:00",
+  "report": "Moment: 2026-09-23T06:48:00+00:00 | SOL/USDC price 119.07\nReturns: 1m +0.02%, 15m +0.30%, 60m +0.04%\nVolume ratio 0.64 vs average | 60m range 118.35-119.26 (position in range 0.81)\nRecent 15 closes: 118.81 118.85 118.92 119.00 119.02 119.03 119.09 119.08 119.14 119.12 119.18 119.26 119.11 119.05 119.07\nCompass reading (intensity only, no direction): upward pressure 0.22, downward 0.52, no-direction 0.26, conviction 0/4, entry pressure 0.74, direction spread -0.30. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-06T00:30:00+00:00",
+  "report": "Moment: 2026-09-06T00:30:00+00:00 | SOL/USDC price 103.42\nReturns: 1m -0.06%, 15m +0.03%, 60m +0.13%\nVolume ratio 1.45 vs average | 60m range 103.12-103.50 (position in range 0.84)\nRecent 15 closes: 103.36 103.36 103.37 103.34 103.36 103.41 103.40 103.35 103.35 103.33 103.42 103.46 103.50 103.48 103.42\nCompass reading (intensity only, no direction): upward pressure 0.18, downward 0.49, no-direction 0.33, conviction 0/4, entry pressure 0.67, direction spread -0.32. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-24T13:49:00+00:00",
+  "report": "Moment: 2026-09-24T13:49:00+00:00 | SOL/USDC price 114.69\nReturns: 1m -0.04%, 15m -0.42%, 60m +1.13%\nVolume ratio 0.28 vs average | 60m range 113.37-115.24 (position in range 0.66)\nRecent 15 closes: 114.87 114.99 115.07 115.16 115.24 115.02 114.74 114.73 114.80 114.73 114.67 114.81 114.86 114.74 114.69\nCompass reading (intensity only, no direction): upward pressure 0.20, downward 0.43, no-direction 0.37, conviction 0/4, entry pressure 0.63, direction spread -0.23. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-14T15:16:00+00:00",
+  "report": "Moment: 2026-09-14T15:16:00+00:00 | SOL/USDC price 101.78\nReturns: 1m +0.08%, 15m +0.28%, 60m -0.09%\nVolume ratio 0.34 vs average | 60m range 101.24-101.95 (position in range 0.74)\nRecent 15 closes: 101.50 101.46 101.39 101.50 101.70 101.68 101.74 101.65 101.70 101.55 101.66 101.70 101.72 101.70 101.78\nCompass reading (intensity only, no direction): upward pressure 0.18, downward 0.46, no-direction 0.36, conviction 0/4, entry pressure 0.64, direction spread -0.28. Flagged for: pressure."
+ },
+ {
+  "ts": "2026-09-28T00:37:00+00:00",
+  "report": "Moment: 2026-09-28T00:37:00+00:00 | SOL/USDC price 121.64\nReturns: 1m +0.08%, 15m -0.75%, 60m -0.21%\nVolume ratio 0.43 vs average | 60m range 121.53-122.82 (position in range 0.13)\nRecent 15 closes: 122.74 122.62 122.63 122.64 122.46 122.51 122.69 122.64 122.35 121.96 121.72 121.75 121.53 121.54 121.64\nCompass reading (intensity only, no direction): upward pressure 0.13, downward 0.64, no-direction 0.22, conviction 0/4, entry pressure 0.78, direction spread -0.51. Flagged for: pressure, spread."
+ },
+ {
+  "ts": "2026-09-27T11:21:00+00:00",
+  "report": "Moment: 2026-09-27T11:21:00+00:00 | SOL/USDC price 123.79\nReturns: 1m +0.05%, 15m -0.12%, 60m -0.39%\nVolume ratio 2.40 vs average | 60m range 123.73-124.29 (position in range 0.09)\nRecent 15 closes: 123.86 123.95 124.08 124.07 124.05 124.14 123.96 123.94 124.02 123.95 123.85 123.87 123.83 123.73 123.79\nCompass reading (intensity only, no direction): upward pressure 0.20, downward 0.33, no-direction 0.47, conviction 0/4, entry pressure 0.53, direction spread -0.12. Flagged for: volume."
+ },
+ {
+  "ts": "2026-09-20T01:58:00+00:00",
+  "report": "Moment: 2026-09-20T01:58:00+00:00 | SOL/USDC price 110.10\nReturns: 1m -0.04%, 15m -0.02%, 60m -0.64%\nVolume ratio 0.10 vs average | 60m range 109.92-110.91 (position in range 0.33)\nRecent 15 closes: 110.14 110.17 110.01 109.92 110.06 109.95 110.00 110.06 110.04 110.04 110.09 110.09 110.11 110.14 110.10\nCompass reading (intensity only, no direction): upward pressure 0.18, downward 0.49, no-direction 0.32, conviction 0/4, entry pressure 0.68, direction spread -0.31. Flagged for: pressure."
+ }
+]

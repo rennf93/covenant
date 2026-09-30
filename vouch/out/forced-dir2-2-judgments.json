@@ -1,0 +1,16 @@
+[
+  {"ts": "2026-09-15T16:30:00+00:00", "choice": "short", "confidence": 0.55},
+  {"ts": "2026-09-15T15:29:00+00:00", "choice": "short", "confidence": 0.52},
+  {"ts": "2026-09-20T23:02:00+00:00", "choice": "long", "confidence": 0.6},
+  {"ts": "2026-09-27T07:18:00+00:00", "choice": "short", "confidence": 0.5},
+  {"ts": "2026-09-10T12:25:00+00:00", "choice": "long", "confidence": 0.45},
+  {"ts": "2026-09-25T12:00:00+00:00", "choice": "long", "confidence": 0.55},
+  {"ts": "2026-09-11T09:41:00+00:00", "choice": "short", "confidence": 0.7},
+  {"ts": "2026-09-25T08:56:00+00:00", "choice": "long", "confidence": 0.6},
+  {"ts": "2026-09-14T16:16:00+00:00", "choice": "long", "confidence": 0.6},
+  {"ts": "2026-09-18T10:46:00+00:00", "choice": "short", "confidence": 0.55},
+  {"ts": "2026-09-25T07:56:00+00:00", "choice": "long", "confidence": 0.5},
+  {"ts": "2026-09-18T02:44:00+00:00", "choice": "short", "confidence": 0.5},
+  {"ts": "2026-09-06T01:32:00+00:00", "choice": "long", "confidence": 0.4},
+  {"ts": "2026-09-16T22:40:00+00:00", "choice": "short", "confidence": 0.7}
+]
