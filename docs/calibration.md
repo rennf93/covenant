@@ -296,3 +296,38 @@ out/backtest-calft-vouch-v2. Rails stay, EV gate OFF, stock english
 serves. Stale-server lesson: the :9988 health check must be asserted to
 report the EXPECTED checkpoint name before any replay (a v1 leftover
 almost invalidated this run; the routing pin warning is not enough).
+
+### Stage 2 v3 RESULT (2026-09-29/30): FAIL - calibration honest, direction signal absent
+
+v3 = the gold-label-fixed trainer on the 7-month wire dataset (299k rows,
+67k tradeable, h240/tp3/sl1.5/taker), 2 epochs on Kaggle T4 (fp16, wall +
+resume cycle). Acceptance on the TRUE 20.8-day never-trained holdout
+(Sep 5 23:37 -> Sep 26 18:10; the first scoring attempt used a stale
+3-day window that is inside v3's training data - discarded, harness
+defaults updated to require explicit windows):
+
+- ECE: fine-tuned 0.0943 vs stock 0.1007 - both honest, below the 0.16
+  anchor. Calibration criterion PASSES on a proper holdout.
+- Direction: ls_spread IC +0.0393 (v2's inversion is GONE - that was the
+  constant-label artifact) but statistically indistinguishable from
+  stock's +0.0448. conviction IC -0.0030 (dead).
+- Gate simulation: NO viable edge for either head at any threshold. At
+  60% breakeven (3%/1.5% brackets, 60bps taker), neither model's
+  direction picks win often enough. FAIL on the pre-registered PnL
+  criterion; do not ship, EV gate stays OFF, stock keeps serving.
+
+CONCLUSION OF THE STAGE 2 ARC: with the pipeline fully honest (wire
+format, correct gold labels, 7 months, 2 epochs) the model achieves
+honest calibration but there is NO directional edge in the current state
+features at these horizons - and the stock head scores the same. The
+bottleneck is not the model or the data plumbing anymore; it is the
+information content of the states. Structural options (user decisions):
+richer state features (book, funding, cross-asset, HTF structure), maker
+execution (BE 0.60 -> ~0.40), different venue/asset/timeframe - or
+accept the negative result and run rails-only with the gate off.
+
+Verdict file ~/colibri/checkpoints/acceptance-verdict-v3-real.txt; FT
+replays out/backtest-calft-v4{,b}; model ~/colibri/checkpoints/
+laya-vouch-v3. Harness windows: always pass explicit --holdout-start/
+--holdout-end matching the dataset's 90/10 split (the stale 3-day
+defaults caused one invalid scoring round).
