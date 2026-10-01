@@ -29,6 +29,7 @@ pub mod admin;
 pub mod challenge;
 pub mod epochs;
 pub mod internal;
+pub mod merkle_core;
 pub mod registry;
 pub mod storage;
 pub mod types;

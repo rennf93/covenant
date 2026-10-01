@@ -496,7 +496,7 @@ fn verify_receipt_checks_merkle_proofs() {
 
     // Three receipts committed for the epoch.
     let leaves: Vec<B256> = (0..3u8).map(|i| keccak256([i; 32])).collect();
-    let root = merkle_core::build_root(&leaves);
+    let root = crate::merkle_core::build_root(&leaves);
     contract
         .commit_epoch(
             id,
@@ -509,7 +509,7 @@ fn verify_receipt_checks_merkle_proofs() {
         .expect("commit");
 
     for i in 0..3usize {
-        let proof = merkle_core::build_proof(&leaves, i);
+        let proof = crate::merkle_core::build_proof(&leaves, i);
         assert!(
             contract.verify_receipt(id, U64::from(0), proof, leaves[i]),
             "receipt {i} must verify"

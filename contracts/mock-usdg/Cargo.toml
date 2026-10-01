@@ -1,5 +1,5 @@
 [package]
-name = "covenant"
+name = "mock-usdg"
 version = "0.1.0"
 edition = "2024"
 
@@ -27,6 +27,3 @@ panic = "abort"
 # If you need to reduce the binary size, it is advisable to try other
 # optimization levels, such as "s" and "z"
 opt-level = 3
-
-[dev-dependencies]
-stylus-sdk = { version = "0.10.9", features = ["stylus-test"] }

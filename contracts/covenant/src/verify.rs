@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use alloy_primitives::{B256, U64, U256};
 
-use merkle_core::verify_proof;
+use crate::merkle_core::verify_proof;
 
 use crate::storage::Covenant;
 
