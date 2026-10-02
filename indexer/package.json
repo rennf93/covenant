@@ -11,11 +11,11 @@
     "start": "tsx src/main.ts 2>/dev/null || node --experimental-strip-types src/main.ts"
   },
   "dependencies": {
-    "viem": "^2.21.0",
+    "viem": "^2.57.1",
     "@covenant/sdk": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "@types/node": "^24.0.0"
+    "typescript": "^7.0.2",
+    "@types/node": "^26.6.3"
   }
 }
