@@ -5,223 +5,296 @@
     <meta name="viewport" content="width=1920, height=1080" />
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      html,
-      body {
-        margin: 0;
-        width: 1920px;
-        height: 1080px;
-        overflow: hidden;
-        background: #09090b;
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #09090b; }
       #root {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 100%; height: 100%;
         font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-        background: radial-gradient(ellipse 80% 60% at 50% 30%, #1c2431 0%, #09090b 70%);
-      }
-      .clip {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-      #problem-text {
-        color: #f4f4f5;
-        font-size: 76px;
-        font-weight: 650;
-        letter-spacing: -0.03em;
-        text-align: center;
-        max-width: 1400px;
-        line-height: 1.15;
-      }
-      #problem-text .strike {
+        background: radial-gradient(ellipse 85% 65% at 50% 25%, #141a24 0%, #09090b 75%);
         position: relative;
-        color: #a1a1aa;
       }
-      #strike-line {
-        position: absolute;
-        left: -2%;
-        top: 52%;
-        height: 6px;
-        width: 104%;
-        background: #ef4444;
-        transform: rotate(-2deg);
-        border-radius: 3px;
-      }
-      #problem-sub {
-        position: absolute;
-        top: 640px;
-        color: #a1a1aa;
-        font-size: 30px;
-        font-weight: 400;
-        max-width: 1100px;
-        text-align: center;
-        line-height: 1.5;
-      }
-      #brand {
-        color: #f4f4f5;
-        font-size: 150px;
-        font-weight: 750;
-        letter-spacing: -0.04em;
-        background: linear-gradient(100deg, #fafafa 30%, #38bdf8 55%, #a78bfa 80%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      #brand-sub {
-        color: #a1a1aa;
-        font-size: 38px;
-        font-weight: 450;
-        margin-top: 28px;
-        letter-spacing: 0.01em;
-      }
-      #chain-row {
-        display: flex;
-        align-items: center;
-        gap: 26px;
-        margin-top: 64px;
-        color: #52525b;
-        font-size: 24px;
-        font-weight: 500;
-      }
-      #chain-row .pill {
-        border: 1px solid #27272a;
-        border-radius: 999px;
-        padding: 12px 28px;
-        color: #d4d4d8;
-        background: #131316;
-      }
-      #chain-row .dot {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: #3f3f46;
-      }
-      #outro-cta {
-        color: #f4f4f5;
-        font-size: 64px;
-        font-weight: 650;
-        letter-spacing: -0.03em;
-        text-align: center;
-        line-height: 1.2;
-      }
-      #outro-cta .accent {
-        background: linear-gradient(95deg, #38bdf8, #a78bfa);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      #outro-urls {
-        margin-top: 56px;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-        font-size: 26px;
-        color: #fafafa;
+      .clip { position: absolute; inset: 0; }
+      .term {
         font-family: Menlo, ui-monospace, monospace;
+        background: #101014; border: 1px solid #26262c; border-radius: 14px;
+        padding: 36px 44px; font-size: 27px; line-height: 1.65; color: #c8c8d0;
       }
-      #outro-urls .u {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-      #outro-urls .k {
-        color: #8b8b92;
-        width: 240px;
-        text-align: right;
-        font-size: 20px;
-        letter-spacing: 0.06em;
-      }
-      #outro-urls .v {
-        color: #f4f4f5;
-      }
-      #outro-mark {
-        margin-top: 64px;
-        color: #79797f;
-        font-size: 22px;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-      }
+      .term .p { color: #38bdf8; } .term .g { color: #4ade80; }
+      .term .r { color: #f87171; } .term .d { color: #63636b; } .term .w { color: #e4e4e7; }
+      .card { background: #101014; border: 1px solid #26262c; border-radius: 14px; padding: 30px 38px; }
+      .mono { font-family: Menlo, ui-monospace, monospace; }
+      .accent { background: linear-gradient(95deg, #38bdf8, #a78bfa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+      .k { color: #a8a8b0; } .v { color: #f4f4f5; } .g2 { color: #4ade80; }
+      .badge { display: inline-block; background: #052e16; color: #4ade80; border: 1px solid #14532d; border-radius: 8px; padding: 6px 18px; font-size: 24px; font-weight: 600; }
+      h1.big { color: #f4f4f5; font-size: 84px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.12; }
+      .sub { color: #a1a1aa; font-size: 30px; line-height: 1.55; }
+      .center { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; text-align: center; }
+      .row { display: flex; gap: 26px; align-items: stretch; width: 100%; }
+      .bar-bg { background: #1f1f24; border-radius: 8px; height: 44px; width: 100%; overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 8px; }
+      .strike-line { position: absolute; left: -2%; top: 52%; height: 8px; width: 104%; background: #ef4444; transform: rotate(-2deg); border-radius: 4px; }
+      .cursor { display: inline-block; width: 16px; height: 52px; background: #38bdf8; vertical-align: -8px; }
+      .pill { border: 1px solid #27272a; border-radius: 999px; padding: 14px 30px; color: #d4d4d8; background: #131316; font-size: 26px; }
+      .titlecard { font-size: 58px; font-weight: 700; color: #f4f4f5; letter-spacing: -0.02em; text-align: center; }
+      .timer { font-family: Menlo, monospace; font-size: 110px; color: #4ade80; margin-top: 40px; }
     </style>
   </head>
   <body>
-    <div
-      id="root"
-      data-composition-id="main"
-      data-start="0"
-      data-duration="26"
-      data-width="1920"
-      data-height="1080"
-    >
-      <!-- Scene 1: the problem (0-6s) -->
-      <div id="scene-problem" class="clip" data-start="0" data-duration="6" data-track-index="0">
-        <div id="problem-text">
-          <span class="strike" id="strike-target">PnL screenshots</span>&nbsp;are not proof.
-        </div>
-        <div id="problem-sub">
-          Prop firms and copy-traders rely on screenshots that cost nothing to fake.<br />
-          Covenant replaces them with on-chain, non-custodial attestation.
+    <div id="root" data-composition-id="main" data-duration="196.9" data-width="1920" data-height="1080">
+      <audio id="n1" src="assets/s1.wav" data-start="0" data-track-index="10"></audio>
+      <audio id="n2" src="assets/s2.wav" data-start="9" data-track-index="10"></audio>
+      <audio id="n3" src="assets/s3.wav" data-start="25.3" data-track-index="10"></audio>
+      <audio id="n4" src="assets/s4.wav" data-start="44.1" data-track-index="10"></audio>
+      <audio id="n5" src="assets/s5.wav" data-start="62.5" data-track-index="10"></audio>
+      <audio id="n6" src="assets/s6.wav" data-start="77" data-track-index="10"></audio>
+      <audio id="n7" src="assets/s7.wav" data-start="91.4" data-track-index="10"></audio>
+      <audio id="n8" src="assets/s8.wav" data-start="107.5" data-track-index="10"></audio>
+      <audio id="n9" src="assets/s9.wav" data-start="122.2" data-track-index="10"></audio>
+      <audio id="n10" src="assets/s10.wav" data-start="139.2" data-track-index="10"></audio>
+      <audio id="n11" src="assets/s11.wav" data-start="158.3" data-track-index="10"></audio>
+      <audio id="n12" src="assets/s12.wav" data-start="173.7" data-track-index="10"></audio>
+      <audio id="n13" src="assets/s13.wav" data-start="188.4" data-track-index="10"></audio>
+
+      <div id="s1" class="clip" data-start="0" data-duration="9" data-track-index="0">
+        <div class="center">
+          <div class="term" style="width:1300px">
+            <div><span class="p">agent@mainnet</span> <span class="d">$</span> <span class="w" id="s1-type">an agent says it made +40% this month.</span></div>
+            <div id="s1-line2" style="margin-top:18px; opacity:0"><span class="r">evidence: screenshot.png</span> <span class="d">(unverifiable)</span></div>
+            <div id="s1-line3" style="margin-top:18px; opacity:0"><span class="g">covenant</span> <span class="d">$</span> <span class="cursor"></span></div>
+          </div>
         </div>
       </div>
 
-      <!-- Scene 2: the brand + what it is (6-12s) -->
-      <div id="scene-brand" class="clip" data-start="6" data-duration="6" data-track-index="0">
-        <div id="brand">Covenant</div>
-        <div id="brand-sub">
-          Non-custodial performance attestation for autonomous agents
-        </div>
-        <div id="chain-row">
-          <span class="pill">Arbitrum Stylus · Rust</span>
-          <span class="dot"></span>
-          <span class="pill">USDG escrow</span>
-          <span class="dot"></span>
-          <span class="pill">Agent-native</span>
+      <div id="s2" class="clip" data-start="9" data-duration="16.3" data-track-index="0">
+        <div class="center">
+          <h1 class="big" style="max-width:1500px"><span style="position:relative">PnL screenshots<span id="s2-strike" class="strike-line"></span></span><br/>cost <span style="color:#f87171">$0</span> to fake.</h1>
+          <div class="sub" style="margin-top:56px; max-width:1300px">$115,000 in prizes at this very buildathon will reward teams whose performance numbers no one can verify.</div>
         </div>
       </div>
 
-      <!-- Scene 3: outro + addresses (20-26s) — middle is the live screen recording -->
-      <div id="scene-outro" class="clip" data-start="20" data-duration="6" data-track-index="0">
-        <div id="outro-cta">
-          Verified performance,<br />settled <span class="accent">on-chain</span>.
+      <div id="s3" class="clip" data-start="25.3" data-duration="18.8" data-track-index="0">
+        <div class="center">
+          <div style="font-size:96px; font-weight:750; letter-spacing:-0.04em"><span class="accent">Covenant</span></div>
+          <div class="sub" style="margin-top:26px; font-size:34px; max-width:1500px">Non-custodial performance attestation for autonomous agents.</div>
+          <div style="display:flex; gap:30px; align-items:center; margin-top:70px">
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:40px">🤖</div><div style="color:#e4e4e7; font-size:26px; margin-top:10px">agent trades</div></div>
+            <div style="color:#38bdf8; font-size:36px">→</div>
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:40px">🌳</div><div style="color:#e4e4e7; font-size:26px; margin-top:10px">receipts → Merkle root</div></div>
+            <div style="color:#38bdf8; font-size:36px">→</div>
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:40px">⛓️</div><div style="color:#e4e4e7; font-size:26px; margin-top:10px">committed on-chain</div></div>
+            <div style="color:#38bdf8; font-size:36px">→</div>
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:40px">🛡️</div><div style="color:#e4e4e7; font-size:26px; margin-top:10px">disputable by anyone</div></div>
+          </div>
+          <div style="display:flex; gap:22px; margin-top:64px">
+            <span class="pill">Arbitrum Stylus · Rust</span><span class="pill">USDG bonds</span><span class="pill">Non-custodial</span>
+          </div>
         </div>
-        <div id="outro-urls">
-          <div class="u"><span class="k">CONTRACT</span><span class="v">0x92613e84e3473f3886172947ecdff3627978fd18</span></div>
-          <div class="u"><span class="k">NETWORK</span><span class="v">Arbitrum Sepolia (Stylus)</span></div>
-          <div class="u"><span class="k">AGENT</span><span class="v">vouch · calibrated System-1 · rails-gated</span></div>
+      </div>
+
+      <div id="s4" class="clip" data-start="44.1" data-duration="18.4" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 120px">
+          <div class="term" style="width:100%">
+            <div><span class="p">$</span> <span class="w">cargo stylus deploy --network sepolia</span></div>
+            <div style="margin-top:14px"><span class="d">contract size:</span> <span class="w">42.1 KB</span></div>
+            <div><span class="d">activation:</span> <span class="g">successful</span></div>
+            <div><span class="g">deployed code at address:</span> <span class="w">0x92613e84e3473f3886172947ecdff3627978fd18</span></div>
+            <div style="margin-top:14px"><span class="p">$</span> <span class="w">cargo stylus verify --deployment-tx 0xba9d0deb…</span></div>
+            <div><span class="g">Verification successful</span></div>
+          </div>
+          <div class="card" style="width:100%; margin-top:34px">
+            <div style="display:flex; align-items:center; gap:20px"><span class="badge">✓ VERIFIED</span><span class="mono v" style="font-size:26px">0x92613e84e3473f3886172947ecdff3627978fd18</span></div>
+            <div class="mono" style="margin-top:18px; font-size:23px; color:#a1a1aa"><span class="k">usdg:</span> <span class="v">0xFFC95faa…</span> &nbsp;<span class="k">bond:</span> <span class="v">10.0 USDG</span> &nbsp;<span class="k">chainId:</span> <span class="v">421614</span></div>
+          </div>
         </div>
-        <div id="outro-mark">Arbitrum Open House Singapore</div>
+      </div>
+
+      <div id="s5" class="clip" data-start="62.5" data-duration="14.5" data-track-index="0">
+        <div class="center">
+          <div class="card" style="width:1200px">
+            <div class="mono" style="font-size:26px; color:#a1a1aa">register strategy → vouch-sol-demo</div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:24px; margin-top:36px">
+              <div style="text-align:center"><div style="font-size:52px">🤖</div><div class="mono v" style="margin-top:8px">agent</div></div>
+              <div style="color:#38bdf8; font-size:34px">━ ━ ━ ▶</div>
+              <div style="text-align:center"><div style="font-size:52px">🏦</div><div class="mono v" style="margin-top:8px">covenant escrow</div></div>
+              <div class="mono" style="font-size:34px; color:#4ade80; margin-left:10px">10.0 USDG</div>
+            </div>
+            <div class="mono" style="margin-top:32px; font-size:22px; color:#63636b">tx 0x7c1434d9…440e30c82 · success</div>
+          </div>
+          <div class="sub" style="margin-top:44px; text-align:center">Skin in the game from block one.<br/>The bond is escrowed <em>before</em> the first trade.</div>
+        </div>
+      </div>
+
+      <div id="s6" class="clip" data-start="77" data-duration="14.4" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 120px">
+          <div class="term" style="width:100%">
+            <div><span class="p">commit</span> <span class="w">strategy 1 · epoch 0</span></div>
+            <div style="margin-top:14px"><span class="k">equity:</span> <span class="g">10.5 USDG</span></div>
+            <div><span class="k">net_flow:</span> <span class="g">+5.0 USDG</span></div>
+            <div><span class="k">trades_root:</span> <span class="w">0x000…001</span></div>
+            <div><span class="k">evidence:</span> <span class="w">github.com/rennf93/covenant/epoch-0</span></div>
+            <div style="margin-top:14px"><span class="g">tx 0x5ee0601a…990c85 · success</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s7" class="clip" data-start="91.4" data-duration="16.1" data-track-index="0">
+        <div class="center">
+          <div class="titlecard">The <span class="r">challenge window</span><br/>is real.</div>
+          <div class="timer" id="s7-timer">300s → 0s</div>
+          <div class="sub" style="margin-top:36px">Anyone can stake 5 USDG and dispute the claim.<br/>This wait was real. Compressed. Never faked.</div>
+        </div>
+      </div>
+
+      <div id="s8" class="clip" data-start="107.5" data-duration="14.7" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 120px">
+          <div class="card" style="width:100%">
+            <div class="mono" style="font-size:26px; color:#a1a1aa">finalize epoch 0 · permissionless</div>
+            <div style="display:flex; gap:60px; margin-top:34px; justify-content:center">
+              <div style="text-align:center"><div class="mono" style="font-size:22px; color:#8b8b92">EQUITY</div><div class="mono g2" style="font-size:56px; margin-top:6px">10.5</div></div>
+              <div style="text-align:center"><div class="mono" style="font-size:22px; color:#8b8b92">HIGH-WATER MARK</div><div class="mono v" style="font-size:56px; margin-top:6px">10.5</div></div>
+              <div style="text-align:center"><div class="mono" style="font-size:22px; color:#8b8b92">CUMULATIVE PNL</div><div class="mono g2" style="font-size:56px; margin-top:6px">+10.0</div></div>
+              <div style="text-align:center"><div class="mono" style="font-size:22px; color:#8b8b92">FINALIZED EPOCHS</div><div class="mono v" style="font-size:56px; margin-top:6px">1</div></div>
+            </div>
+            <div class="mono" style="margin-top:30px; font-size:22px; color:#63636b; text-align:center">permissionless — anyone can settle, not just the agent</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s9" class="clip" data-start="122.2" data-duration="17" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 120px">
+          <div style="font-size:64px; font-weight:700; color:#f4f4f5; letter-spacing:-0.02em">On top: Vouch — a live trading agent.</div>
+          <div class="row" style="margin-top:60px">
+            <div class="card" style="flex:1.2"><div class="mono" style="font-size:24px; color:#8b8b92">COMPASS (calibrated System-1)</div><div class="mono" style="font-size:25px; margin-top:16px; color:#e4e4e7">scores every tick:<br/>pressure 0.72 · spread +0.45 · conviction 2/4</div></div>
+            <div class="card" style="flex:1.2"><div class="mono" style="font-size:24px; color:#8b8b92">RAILS (deterministic)</div><div class="mono" style="font-size:25px; margin-top:16px; color:#e4e4e7">stop · take · cooldown<br/>kill switch · max position</div></div>
+            <div class="card" style="flex:1.2"><div class="mono" style="font-size:24px; color:#8b8b92">AUDIT</div><div class="mono" style="font-size:25px; margin-top:16px; color:#e4e4e7">decisions.jsonl<br/>full reasoning per tick</div></div>
+          </div>
+          <div class="term" style="width:100%; margin-top:40px; font-size:23px">
+            <div><span class="d">2026-09-30T23:41:02Z</span> <span class="k">decision</span> <span class="g">mode=entry</span> <span class="w">probs{long:0.72, flat:0.21, short:0.07}</span> <span class="k">conviction</span> <span class="w">2/4</span> <span class="r">veto=cooldown_after_loss</span></div>
+            <div><span class="d">2026-09-30T23:42:09Z</span> <span class="k">decision</span> <span class="g">mode=entry</span> <span class="w">probs{long:0.31, flat:0.58, short:0.11}</span> <span class="k">action</span> <span class="w">flat</span> <span class="d">(no edge, stand aside)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s10" class="clip" data-start="139.2" data-duration="19.1" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 140px">
+          <div style="font-size:56px; font-weight:700; color:#f4f4f5; letter-spacing:-0.02em">We published the ugly numbers too.</div>
+          <div class="row" style="margin-top:64px">
+            <div style="flex:1"><div class="mono" style="font-size:24px; color:#a1a1aa; margin-bottom:14px">covenant v3 — ECE 0.094</div><div class="bar-bg"><div class="bar-fill" style="background:linear-gradient(90deg,#38bdf8,#818cf8); width:63%"></div></div></div>
+            <div style="flex:1"><div class="mono" style="font-size:24px; color:#a1a1aa; margin-bottom:14px">stock laya — ECE 0.101</div><div class="bar-bg"><div class="bar-fill" style="background:#52525b; width:67%"></div></div></div>
+          </div>
+          <div class="card" style="width:100%; margin-top:56px">
+            <div class="mono v" style="font-size:28px; text-align:center">calibration: honest ✓ &nbsp;·&nbsp; directional edge: <span style="color:#f87171">not found at tested horizons</span> &nbsp;·&nbsp; <span style="color:#4ade80">published anyway</span></div>
+          </div>
+          <div class="sub" style="margin-top:44px; text-align:center; max-width:1400px">A proof layer is worthless if the thing it proves was cherry-picked.</div>
+        </div>
+      </div>
+
+      <div id="s11" class="clip" data-start="158.3" data-duration="15.4" data-track-index="0">
+        <div class="center">
+          <div style="font-size:60px; font-weight:700; color:#f4f4f5; letter-spacing:-0.02em; text-align:center">Verify the covenant.<br/>Not the screenshot.</div>
+          <div class="row" style="margin-top:70px; gap:34px">
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:44px">📊</div><div style="color:#e4e4e7; font-size:27px; margin-top:14px; font-weight:600">copy-traders</div><div class="sub" style="font-size:22px; margin-top:10px">the track record is settled on-chain</div></div>
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:44px">🏢</div><div style="color:#e4e4e7; font-size:27px; margin-top:14px; font-weight:600">prop firms</div><div class="sub" style="font-size:22px; margin-top:10px">remote traders post bonds before they trade</div></div>
+            <div class="card" style="flex:1; text-align:center"><div style="font-size:44px">💰</div><div style="color:#e4e4e7; font-size:27px; margin-top:14px; font-weight:600">allocators</div><div class="sub" style="font-size:22px; margin-top:10px">dispute rights are permissionless</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s12" class="clip" data-start="173.7" data-duration="14.7" data-track-index="0">
+        <div style="display:flex; flex-direction:column; align-items:center; height:100%; justify-content:center; padding:0 160px">
+          <div style="font-size:52px; font-weight:700; color:#f4f4f5">What's next.</div>
+          <div style="display:flex; flex-direction:column; gap:34px; margin-top:70px; width:100%">
+            <div style="display:flex; align-items:center; gap:28px"><span class="mono" style="color:#38bdf8; font-size:30px">01</span><span style="color:#e4e4e7; font-size:30px">order-book depth, funding rates, and cross-asset signals in the compass state</span></div>
+            <div style="display:flex; align-items:center; gap:28px"><span class="mono" style="color:#38bdf8; font-size:30px">02</span><span style="color:#e4e4e7; font-size:30px">dispute-driven insurance: upheld challenges pay out from the bond</span></div>
+            <div style="display:flex; align-items:center; gap:28px"><span class="mono" style="color:#38bdf8; font-size:30px">03</span><span style="color:#e4e4e7; font-size:30px">mainnet deployment with a live USDG integration beyond staging</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s13" class="clip" data-start="188.4" data-duration="8.5" data-track-index="0">
+        <div class="center">
+          <div style="font-size:110px; font-weight:750; letter-spacing:-0.04em"><span class="accent">Covenant</span></div>
+          <div style="font-size:40px; color:#e4e4e7; margin-top:26px">Verified performance, settled on-chain.</div>
+          <div class="card mono" style="margin-top:70px; font-size:27px; padding:34px 48px">
+            <span class="k">CONTRACT&nbsp;&nbsp;</span><span class="v">0x92613e84e3473f3886172947ecdff3627978fd18</span><br/>
+            <span class="k">NETWORK&nbsp;&nbsp;&nbsp;</span><span class="v">Arbitrum Sepolia · Stylus (Rust)</span>
+          </div>
+          <div class="mono" style="margin-top:56px; font-size:24px; color:#a8a8b0">non-custodial · bond-backed · permissionlessly disputable</div>
+        </div>
       </div>
     </div>
+
     <script>
       const tl = gsap.timeline({ paused: true });
+      const E3 = "power3.out", E2 = "power2.out";
 
-      // Scene 1: strike-through animation on the problem, then sub copy
-      tl.fromTo("#problem-text", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.1);
-      tl.fromTo("#strike-line", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power2.inOut" }, 0.9);
-      tl.fromTo("#problem-sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 2.4);
-      tl.to("#scene-problem", { opacity: 0, duration: 0.5, ease: "power1.in" }, 5.4);
+      // S1
+      tl.set("#s1-line2", { opacity: 0 }, 0);
+      tl.set("#s1-line3", { opacity: 0 }, 0);
+      tl.fromTo("#s1-type", { width: "0px" }, { width: "auto", duration: 1.6, ease: "none" }, 0.3);
+      tl.fromTo("#s1-cursor", { opacity: 1 }, { opacity: 0, duration: 0.4, repeat: 8, ease: "none" }, 0.3);
+      tl.to("#s1-line2", { opacity: 1, duration: 0.3 }, 2.1);
+      tl.to("#s1-line3", { opacity: 1, duration: 0.3 }, 2.5);
+      tl.to("#s1", { opacity: 0, duration: 0.5 }, 8.4);
 
-      // Scene 2: brand reveal + pills
-      tl.fromTo("#brand", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power3.out" }, 6.1);
-      tl.fromTo("#brand-sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 7);
-      tl.fromTo("#chain-row", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 8.2);
-      tl.to("#scene-brand", { opacity: 0, duration: 0.5, ease: "power1.in" }, 11.4);
+      // S2
+      tl.fromTo("#s2 h1", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: E3 }, 9.2);
+      tl.fromTo("#s2-strike", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power2.inOut" }, 10.6);
+      tl.fromTo("#s2 .sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: E2 }, 11.6);
+      tl.to("#s2", { opacity: 0, duration: 0.5 }, 24.5);
 
-      // Scene 3: outro + addresses (screen recording plays 12-20s between these)
-      tl.fromTo("#outro-cta", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 20.1);
-      tl.fromTo("#outro-urls .u", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.25, ease: "power2.out" }, 21.5);
-      tl.fromTo("#outro-mark", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 23.2);
+      // S3
+      tl.fromTo("#s3 > div > div:first-child", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.7, ease: E3 }, 25.5);
+      tl.fromTo("#s3 .sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: E2 }, 26.2);
+      tl.fromTo("#s3-flow .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.3, ease: E2 }, 27.1);
+      tl.fromTo("#s3 > div > div:last-child", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: E2 }, 28.7);
+      tl.to("#s3", { opacity: 0, duration: 0.5 }, 43.5);
+
+      // S4
+      tl.fromTo("#s4 .term div", { opacity: 0 }, { opacity: 1, duration: 0.25, stagger: 0.3 }, 44.3);
+      tl.fromTo("#s4 .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: E2 }, 48);
+
+      // S5
+      tl.fromTo("#s5 .card", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: E3 }, 62.7);
+      tl.fromTo("#s5 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: E2 }, 63.9);
+
+      // S6
+      tl.fromTo("#s6 .term", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 77.2);
+
+      // S7
+      tl.fromTo("#s7 .titlecard", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: E3 }, 91.6);
+      tl.fromTo("#s7-timer", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 92.4);
+      tl.fromTo("#s7 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: E2 }, 93.9);
+
+      // S8
+      tl.fromTo("#s8 .card", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: E3 }, 107.7);
+      tl.fromTo("#s8 .card .mono div div", { opacity: 0 }, { opacity: 1, duration: 0.3, stagger: 0.08 }, 108.3);
+
+      // S9
+      tl.fromTo("#s9 > div > div:first-child", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: E3 }, 122.4);
+      tl.fromTo("#s9 .row .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.2, ease: E2 }, 123);
+      tl.fromTo("#s9 .term", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 124.4);
+
+      // S10
+      tl.fromTo("#s10 > div > div:first-child", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: E3 }, 139.4);
+      tl.fromTo("#s10-bar1", { width: "0%" }, { width: "63%", duration: 1.1, ease: "power2.out" }, 140.1);
+      tl.fromTo("#s10-bar2", { width: "0%" }, { width: "67%", duration: 1.1, ease: "power2.out" }, 140.3);
+      tl.fromTo("#s10 .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: E2 }, 141.6);
+      tl.fromTo("#s10 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: E2 }, 143.2);
+
+      // S11
+      tl.fromTo("#s11 > div > div:first-child", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.7, ease: E3 }, 158.5);
+      tl.fromTo("#s11 .row .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.25, ease: E2 }, 159.2);
+
+      // S12
+      tl.fromTo("#s12 > div > div:first-child", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: E3 }, 173.9);
+      tl.fromTo("#s12 .row > div", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.35, ease: E2 }, 174.5);
+
+      // S13
+      tl.fromTo("#s13 > div > div:first-child", { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.7, ease: E3 }, 188.6);
+      tl.fromTo("#s13 > div > div:nth-child(2)", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: E2 }, 189.3);
+      tl.fromTo("#s13 .card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: E2 }, 190);
+      tl.fromTo("#s13 > div > div:last-child", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 190.8);
 
       window.__timelines["main"] = tl;
       tl.seek(0);
