@@ -11,7 +11,7 @@
     "start": "tsx src/main.ts 2>/dev/null || node --experimental-strip-types src/main.ts"
   },
   "dependencies": {
-    "viem": "^2.21.0",
+    "viem": "^2.57.1",
     "@covenant/sdk": "workspace:*"
   },
   "devDependencies": {
