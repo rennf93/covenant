@@ -134,7 +134,7 @@ def main() -> None:
 
     manifest: list[dict[str, object]] = []
     for tag, ws, we in plan:
-        chunk_out = out_root / f"decisions-{tag}"
+        chunk_out = out_root / f"backtest-{tag}"
         decisions = chunk_out / "decisions.jsonl"
         if a.resume and decisions.exists() and decisions.stat().st_size > 0:
             log(f"{tag}: already recorded, skipping")

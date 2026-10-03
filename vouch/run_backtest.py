@@ -56,6 +56,13 @@ if __name__ == "__main__":
         "v5 context point per tick and record wire v2 decisions; must span "
         "the replay window. Omit for today's wire-v1 behavior",
     )
+    ap.add_argument(
+        "--out-root",
+        type=str,
+        default="out",
+        help="root dir for the recording (defaults to ./out); recordings land "
+        "in <out-root>/backtest-<tag>",
+    )
     a = ap.parse_args()
 
     if a.fee_bps is not None:
@@ -74,5 +81,6 @@ if __name__ == "__main__":
         data_harvest=a.data_harvest,
         days_back=a.days_back,
         context_file=a.context_file,
+        out_root=a.out_root,
     )
     print(json.dumps(summary, indent=2))
