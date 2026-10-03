@@ -44,11 +44,18 @@ def candles_product(perp_symbol: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description="build the System-1 context cache (JSONL)")
     ap.add_argument("--days-back", type=int, required=True, help="output window length, days")
+    ap.add_argument(
+        "--end-ts",
+        type=int,
+        default=None,
+        help="window end, unix seconds (default: now). For building historical "
+        "segments between data holes; the window is then [end-ts - days-back, end-ts]",
+    )
     ap.add_argument("--product", default="SOLUSDT", help="perp symbol for funding + OI")
     ap.add_argument("--out", default="out/context-sol.jsonl")
     a = ap.parse_args()
 
-    end = int(time.time()) // 60 * 60
+    end = a.end_ts if a.end_ts else int(time.time()) // 60 * 60
     window_start = end - a.days_back * 86400
     lookback_minutes = (a.days_back + WARMUP_LOOKBACK_DAYS) * 1440
 
@@ -64,11 +71,15 @@ def main() -> None:
             client, product="BTC-USD", minutes=lookback_minutes, end_ts=end, require_complete=True
         )
         funding = fetch_funding(
-            client, symbol=a.product, start_ts=window_start - (WARMUP_LOOKBACK_DAYS + 1) * 86400,
+            client,
+            symbol=a.product,
+            start_ts=window_start - (WARMUP_LOOKBACK_DAYS + 1) * 86400,
             end_ts=end,
         )
         oi = fetch_oi_metrics(
-            client, symbol=a.product, start_ts=window_start - WARMUP_LOOKBACK_DAYS * 86400,
+            client,
+            symbol=a.product,
+            start_ts=window_start - WARMUP_LOOKBACK_DAYS * 86400,
             end_ts=end,
         )
 
