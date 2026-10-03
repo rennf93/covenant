@@ -148,17 +148,23 @@ export function createHub(): Hub {
   };
 }
 
-export function startApi(state: CovenantState, port: number, hub?: Hub): Server {
+export function startApi(state: CovenantState | (() => CovenantState), port: number, hub?: Hub): Server {
+  // The reducer REPLACES its state object on every committed batch, so a
+  // state captured by value here goes stale after batch one. main() passes a
+  // live getter; a bare state (tests) is wrapped as a constant provider.
+  const getState = typeof state === "function" ? state : () => state;
+
   /** Full leaderboard snapshot in the default (all-time) window order. */
   const snapshot = (): string => {
-    const rows = [...state.strategies.values()].sort(byWindowReturn(state, null)).map((s) => leaderboardRow(s));
+    const s = getState();
+    const rows = [...s.strategies.values()].sort(byWindowReturn(s, null)).map((row) => leaderboardRow(row));
     return toJson({ rows });
   };
 
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/health") {
-      jsonResponse(res, 200, { ok: true, lastBlock: state.lastBlock.toString() });
+      jsonResponse(res, 200, { ok: true, lastBlock: getState().lastBlock.toString() });
       return;
     }
     if (url.pathname === "/strategies" && req.method === "GET") {
@@ -170,14 +176,14 @@ export function startApi(state: CovenantState, port: number, hub?: Hub): Server 
       }
       const cutoff = win === null ? null : BigInt(Math.floor(Date.now() / 1000)) - BigInt(win);
       const { limit, offset } = pagination(url);
-      const sorted = [...state.strategies.values()].sort(byWindowReturn(state, cutoff));
+      const sorted = [...getState().strategies.values()].sort(byWindowReturn(getState(), cutoff));
       const rows = sorted.slice(offset, offset + limit).map((s) => leaderboardRow(s, windowReturn(s, cutoff)));
       jsonResponse(res, 200, { rows, pagination: { total: sorted.length, limit, offset } });
       return;
     }
     const match = /^\/strategies\/(\d+)$/.exec(url.pathname);
     if (match) {
-      const strategy = state.strategies.get(match[1]!);
+      const strategy = getState().strategies.get(match[1]!);
       if (!strategy) {
         jsonResponse(res, 404, { error: "unknown strategy" });
         return;

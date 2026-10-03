@@ -67,7 +67,9 @@ async function main(): Promise<void> {
     },
   });
 
-  startApi(indexer.state, cfg.port, hub);
+  // Live getter, not a snapshot: the reducer replaces its state object on
+  // every batch, and startApi must read the current one per request.
+  startApi(() => indexer.state, cfg.port, hub);
   console.log(`api on :${cfg.port}; indexing ${cfg.contract} on ${cfg.chain.name}`);
   // Explicit START_BLOCK anchors a full backfill; otherwise resume from the
   // snapshot cursor, or follow the head on a cold start.

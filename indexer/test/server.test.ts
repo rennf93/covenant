@@ -281,3 +281,26 @@ test("leaderboardRow carries the windowed return alongside the all-time one", ()
   const allTime = leaderboardRow(s1);
   assert.equal(allTime.windowReturnWad, allTime.derived.returnWad);
 });
+
+test("api reads the state through the getter on every request", async () => {
+  // The reducer REPLACES its state object per committed batch; an API bound
+  // to a captured state goes stale after batch one (the 2026-10-03 wiring
+  // bug: /strategies served the initial empty state while the reducer held
+  // the real one). startApi must read through a getter per request.
+  let state = makeState();
+  const server = startApi(() => state, 0);
+  try {
+    const base = `http://127.0.0.1:${await ephemeralPort(server)}`;
+    const before = (await (await fetch(`${base}/strategies`)).json()) as { rows: RowDto[] };
+    assert.equal(before.rows.length, 0);
+
+    // "batch commit": the reducer swaps in a new state object
+    state = seedHistory(state, 1, 1);
+
+    const after = (await (await fetch(`${base}/strategies`)).json()) as { rows: RowDto[] };
+    assert.equal(after.rows.length, 1);
+    assert.equal(after.rows[0]?.id, "1");
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
