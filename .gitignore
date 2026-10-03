@@ -18,3 +18,4 @@ coverage/tmp/
 
 .coverage
 HANDOFF-SESSION.md
+renders/
