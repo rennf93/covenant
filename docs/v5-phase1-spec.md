@@ -153,3 +153,81 @@ Rules:
   10 sampled decisions for sane v2 strings; token count printed.
 - No changes to labels, brackets, or acceptance criteria (h240/tp3/sl1.5/
   taker stays pre-registered for comparability).
+
+## Chunk C (news, forward lane) - added 2026-10-03
+
+Purpose: the navigator/judge lane's future input, NOT a training-state
+feature (RSS cannot backfill 7 months). Built RSS-first, normalized to a
+CryptoPanic-shaped schema so a CryptoPanic key can replace/augment feeds
+later without touching consumers.
+
+### Pinned news event schema (one JSON object per line, JSONL)
+
+{"id": "<sha256(url)[:16]>", "title": "<str>", "url": "<str>",
+ "source": "<feed or site name>", "published_at": "<ISO8601 UTC, e.g.
+ 2026-10-03T12:34:56+00:00>", "currencies": ["SOL", "BTC"], "kind": "news",
+ "via": "rss" | "cryptopanic" | "gdelt"}
+
+- id: content-addressed on the URL so the same story from two feeds dedupes.
+- Store sorted by published_at; re-runs MERGE (load existing, add, dedupe by
+  id, re-sort). News feeds are inherently gappy: NO grid-refusal policy for
+  the store (that would make every fetch a refusal); consumers handle gaps.
+- Prohibited in v1: vote/sentiment fields (CryptoPanic has them; we add the
+  key later and the schema grows only forward).
+
+### Deliverable C1: news fetcher + store + CLI
+
+- vouch/vouch/news/__init__.py + feed.py + store.py (package "vouch.news";
+  layering: leaf, engine-level; must not import server or analysis).
+- Feed list (configurable via env VOUCH_NEWS_FEEDS, comma-separated, these
+  defaults): CoinDesk https://www.coindesk.com/arc/outboundfeeds/rss/,
+  Cointelegraph https://cointelegraph.com/rss,
+  Decrypt https://decrypt.co/feed, CryptoSlate https://cryptoslate.com/feed/.
+- RSS/Atom parsing with stdlib xml.etree + email.utils.parsedate_to_datetime
+  (RFC-822 dates). No feedparser dependency. HTTP via httpx, 20s timeout,
+  per-feed failure = warn + continue (a dead feed never kills the run).
+- Currency tagging: title/url contains sol|solana -> SOL; btc|bitcoin -> BTC;
+  eth|ethereum -> ETH; else ["CRYPTO"]. Lowercase substring match on title.
+- CLI run_news_fetch.py: --feeds override, --store PATH (default
+  out/news/events.jsonl), --limit-per-feed N. Prints per-feed fetched/new/
+  deduped counts. Exit 0 with zero feeds reachable ONLY with a loud warning.
+- Tests with real saved RSS fixtures (one RSS 2.0, one Atom): parsing,
+  date coercion, currency tagging, dedupe-on-merge, sort order, malformed
+  item tolerance (bad date -> skip item, not crash).
+
+### Deliverable C2: judge document renderer
+
+- vouch/vouch/analysis/judge_doc.py + CLI run_judge_render.py. Consumes:
+  probe rows (run_probe_build.py schema), a ContextSeries cache (pinned
+  chunk A interface), a news store (pinned C1 schema). Renders ONE plain-text
+  document per probe:
+  1. MARKET STATE: the probe's existing v1 state rendering exactly as
+     run_judge_validate.render_document does today (byte-compatible), then
+     the pinned wire-v2 context sentence (reuse the exact format from the
+     spec's v2 block; refuse if the context cache lacks the probe's minute -
+     the 127-probe re-judging MUST ride enriched state).
+  2. COMPASS READS: unchanged from render_document (the calibrated reads +
+     "does NOT pick direction" line).
+  3. NEWS DIGEST: events with published_at in [ts-24h, ts], most recent
+     first, capped at 20, each "- {relative age}h ago [{source}] {title}".
+     Empty window -> the literal line "No news data available for this
+     window (forward collection starts 2026-10)." - never a crash, so the
+     September probes can be re-judged with context but without news.
+  4. QUESTION, at the END: reuse the entry-decision question wording from
+     run_judge_validate.py verbatim (it is the pre-registered instrument;
+     do not reword it).
+- Token budget: <= 4000 tokens by the laya-multilingual tokenizer (the
+  measured 4k reliability cap); measure in a test, skip when the tokenizer
+  is unavailable. Over budget = build error, not a silent trim.
+- CLI: --probes PATH --index N (or --all), --context-file PATH, --news-file
+  PATH, --out PATH (writes doc text; --all writes a JSONL of docs).
+- Tests: golden doc from fixtures (context + news + probe), empty-news line,
+  missing-context refusal, cap at 20 events, token-budget test.
+
+### GDELT backfill probe (research, report-only)
+
+Probe whether GDELT can backfill historical crypto news with usable
+timestamps for the 7-month window (the DOC API's rolling window is believed
+to be ~3 months - verify against the real API with a 2026-05 query for
+solana). Report the verdict; commit code only if it can actually serve
+backfill. Expected outcome: news stays out of training states, confirmed.

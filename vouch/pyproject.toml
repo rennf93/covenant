@@ -82,6 +82,9 @@ layers = [
     "vouch.engine",
     "vouch.venues",
     "vouch.attest",
+    # vouch.news (spec v5 phase 1, chunk C): forward-lane news events; a leaf
+    # below everything, consumed upward by analysis (judge documents).
+    "vouch.news",
 ]
 
 [[tool.importlinter.contracts]]

@@ -1,0 +1,217 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<rss
+  version="2.0"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:atom="http://www.w3.org/2005/Atom"
+  xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+  xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+  xmlns:media="http://search.yahoo.com/mrss/"
+  xmlns:snf="http://www.smartnews.be/snf"
+>
+  <channel>
+    <title>Decrypt</title>
+    <description>trimmed for fixture storage</description>
+    <language>en</language>
+    
+    <atom:link
+      href="https://decrypt.co/feed"
+      rel="self"
+      type="application/rss+xml"
+    />
+    
+    
+      
+        <link>https://decrypt.co/feed</link>
+      
+    
+    
+      <copyright>Decrypt Media</copyright>
+    
+    
+    
+    
+      <lastBuildDate>Fri, 02 Oct 2026 21:16:04 +0000</lastBuildDate>
+    
+    
+      <sy:updatePeriod>hourly</sy:updatePeriod>
+    
+    
+      <sy:updateFrequency>1</sy:updateFrequency>
+    
+    
+    
+    
+    
+      <item>
+  <title>California Subpoenas OpenAI Over AI Models That Hacked Their Way Out of a Test</title>
+  <link>https://decrypt.co/379998/california-subpoena-openai-ai-models-hack</link>
+  <pubDate>Fri, 02 Oct 2026 21:16:04 +0000</pubDate>
+  
+    <description>trimmed for fixture storage</description>
+  
+  <dc:creator>Jose Antonio Lanz</dc:creator>
+  
+  
+    <guid isPermaLink="false">https://decrypt.co/?p=379998</guid>
+  
+  
+    
+  
+  
+    
+      <category>Law and Order</category>
+    
+  
+  
+  
+  
+  
+  
+    
+      
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+
+</item>
+<item>
+  <title>Ethereum Now Lets You Pay for AI Without Revealing Who You Are</title>
+  <link>https://decrypt.co/379991/ethereum-now-pay-for-ai-without-revealing-identity</link>
+  <pubDate>Fri, 02 Oct 2026 20:16:04 +0000</pubDate>
+  
+    <description>trimmed for fixture storage</description>
+  
+  <dc:creator>Jose Antonio Lanz</dc:creator>
+  
+  
+    <guid isPermaLink="false">https://decrypt.co/?p=379991</guid>
+  
+  
+    
+  
+  
+    
+      <category>Technology</category>
+    
+  
+  
+  
+  
+  
+  
+    
+      
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+
+</item>
+<item>
+  <title>Bitcoin Heads Higher on Macro Moves: Where Does BTC Go Next?</title>
+  <link>https://decrypt.co/379936/bitcoin-heads-higher-fed-jobs-where-does-btc-go-next</link>
+  <pubDate>Fri, 02 Oct 2026 16:45:52 +0000</pubDate>
+  
+    <description>trimmed for fixture storage</description>
+  
+  <dc:creator>Jose Antonio Lanz</dc:creator>
+  
+  
+    <guid isPermaLink="false">https://decrypt.co/?p=379936</guid>
+  
+  
+    
+  
+  
+    
+      <category></category>
+    
+      <category>Markets</category>
+    
+  
+  
+  
+  
+  
+  
+    
+      
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+
+</item>
+<item>
+  <title>Introducing The Information Exchange on Solana, Powered by Decrypt and MYR</title>
+  <link>https://decrypt.co/379655/introducing-the-information-exchange-powered-by-decrypt-and-myr</link>
+  <pubDate>Wed, 30 Sep 2026 16:36:10 +0000</pubDate>
+  
+    <description>trimmed for fixture storage</description>
+  
+  <dc:creator>Decrypt Staff</dc:creator>
+  
+  
+    <guid isPermaLink="false">https://decrypt.co/?p=379655</guid>
+  
+  
+    
+  
+  
+    
+      <category></category>
+    
+      <category>Our Company</category>
+    
+  
+  
+  
+  
+  
+  
+    
+      
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+
+</item>
+    
+  </channel>
+</rss>

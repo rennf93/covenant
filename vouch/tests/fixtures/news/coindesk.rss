@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:media="http://search.yahoo.com/mrss/" version="2.0">
+  <channel>
+    <title>CoinDesk: Bitcoin, Ethereum, Crypto News and Price Data</title>
+    <link>https://www.coindesk.com/</link>
+    <atom:link rel="self" type="application/rss+xml" href="https://www.coindesk.com/arc/outboundfeeds/rss"/>
+    <atom:link rel="hub" href="true"/>
+    <description>trimmed for fixture storage</description>
+    <lastBuildDate>Sat, 03 Oct 2026 07:31:29 +0000</lastBuildDate>
+    <language>en-US</language>
+    <copyright>© 2026 CoinDesk, Inc.</copyright>
+    <generator>CoinDesk</generator>
+    <ttl>5</ttl>
+    <sy:updatePeriod>hourly</sy:updatePeriod>
+    <sy:updateFrequency>1</sy:updateFrequency>
+    <image>
+      <url>https://downloads.coindesk.com/arc/failsafe/feeds/coindesk-feed-logo.png</url>
+      <title>CoinDesk: Bitcoin, Ethereum, Crypto News and Price Data</title>
+      <link>https://www.coindesk.com/</link>
+    </image>
+    <item>
+      <title><![CDATA[Bank group sues U.S. regulator over granting crypto trust charters]]></title>
+      <link>https://www.coindesk.com/policy/2026/10/02/bank-group-sues-u-s-regulator-over-granting-crypto-trust-charters</link>
+      
+      <guid isPermaLink="false">df62f6d6-07a7-4ca7-b760-b4e373ca7c0b</guid>
+      <pubDate>Fri, 02 Oct 2026 21:23:20 +0000</pubDate>
+      <description>trimmed for fixture storage</description>
+      <dc:creator>Jesse Hamilton</dc:creator>
+      
+      <dc:description/>
+      <category domain="https://www.coindesk.com/policy"><![CDATA[Policy]]></category>
+      <category domain="tag"><![CDATA[banks]]></category>
+      <category domain="https://www.coindesk.com/">News</category>
+    </item>
+<item>
+      <title><![CDATA[Once a $2 billion Ethereum layer-2, Blast is shutting down after assets plunge 98%]]></title>
+      <link>https://www.coindesk.com/tech/2026/10/02/once-a-usd2-billion-ethereum-layer-2-blast-is-shutting-down-after-assets-plunge-98</link>
+      
+      <guid isPermaLink="false">222c482a-168d-45e6-9e66-422f00f149cd</guid>
+      <pubDate>Fri, 02 Oct 2026 17:15:35 +0000</pubDate>
+      <description>trimmed for fixture storage</description>
+      <dc:creator>Krisztian Sandor</dc:creator>
+      
+      <dc:description/>
+      <category domain="https://www.coindesk.com/tech"><![CDATA[Tech]]></category>
+      <category domain="tag"><![CDATA[Ethereum News]]></category>
+      <category domain="https://www.coindesk.com/">News</category>
+    </item>
+<item>
+      <title><![CDATA[Live updates: Bitcoin reverses big early gains following soft U.S. jobs data]]></title>
+      <link>https://www.coindesk.com/tech/2026/10/02/live-updates-bitcoin-gold-and-tech-futures-edge-higher-as-markets-await-u-s-jobs-report</link>
+      <guid isPermaLink="false">fd7e28fa-2b6e-4335-a513-55e0fbabb49d</guid>
+      <pubDate>Fri, 02 Oct 2026 11:22:40 +0000</pubDate>
+      <description>trimmed for fixture storage</description>
+      <dc:creator>James Van Straten</dc:creator>
+      <dc:creator>Helene Braun</dc:creator>
+      <dc:creator>Stephen Alpher</dc:creator>
+      
+      <dc:description/>
+      <category domain="https://www.coindesk.com/tech"><![CDATA[Tech]]></category>
+      <category domain="tag"><![CDATA[Live News]]></category>
+      <category domain="https://www.coindesk.com/">live_news</category>
+    </item>
+<item>
+      <title><![CDATA[Crypto traders are in risk-on mode as bitcoin dominance nears return to 60%]]></title>
+      <link>https://www.coindesk.com/markets/2026/10/02/crypto-traders-are-in-risk-on-mode-as-bitcoin-dominance-nears-return-to-60</link>
+      
+      <guid isPermaLink="false">da31ac5a-3a27-4234-84ff-fcacdf5d00c2</guid>
+      <pubDate>Fri, 02 Oct 2026 10:31:16 +0000</pubDate>
+      <description>trimmed for fixture storage</description>
+      <dc:creator>Omkar Godbole</dc:creator>
+      
+      <dc:description/>
+      <category domain="https://www.coindesk.com/markets"><![CDATA[Markets]]></category>
+      <category domain="tag"><![CDATA[Crypto Markets Today]]></category>
+      <category domain="https://www.coindesk.com/">News</category>
+    </item>
+  </channel>
+</rss>
