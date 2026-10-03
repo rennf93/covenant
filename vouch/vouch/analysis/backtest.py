@@ -21,6 +21,7 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -29,6 +30,35 @@ from vouch.engine.candles import fetch_candles, state_snapshot, tick_from_bars
 from vouch.engine.rules import Rules
 from vouch.engine.system1 import System1
 from vouch.engine.system2 import rewrite
+
+if TYPE_CHECKING:
+    from vouch.engine.context_features import ContextSeries
+
+
+def _load_context_series(
+    context_file: str | None, first_ts: int, last_ts: int
+) -> ContextSeries | None:
+    """Load the context cache for a replay, refusing coverage holes at the
+    window edges. Only the pinned load_jsonl/at() surface is used, so the
+    check stays honest regardless of the cache's internals."""
+    if context_file is None:
+        return None
+    try:
+        from vouch.engine.context_features import ContextSeries
+    except ImportError as e:
+        raise SystemExit(
+            f"--context-file {context_file} needs vouch.engine.context_features "
+            "(v5 phase 1 chunk A); build the context cache first"
+        ) from e
+    series = ContextSeries.load_jsonl(context_file)
+    for label, ts in (("first", first_ts), ("last", last_ts)):
+        if series.at(ts) is None:
+            raise SystemExit(
+                f"--context-file {context_file} does not cover the replay window: "
+                f"no context row at the {label} decision tick (ts {ts}, "
+                f"{datetime.fromtimestamp(ts, tz=UTC).isoformat()}); refusing"
+            )
+    return series
 
 
 def run_backtest(
@@ -42,13 +72,18 @@ def run_backtest(
     use_s2: bool = True,
     data_harvest: bool = False,
     days_back: int = 0,
+    context_file: str | None = None,
 ) -> dict:
     """data_harvest: force-close any position right after it opens (and park
     the kill-switch halt) so the loop keeps producing flat-state ENTRY
     decisions over the whole history. This is a DATA mode: it maximizes
     state diversity for calibration/SFT and its PnL is meaningless.
     days_back: end the window N days in the past (0 = now) so historical
-    chunks can be recorded without overlapping newer ones."""
+    chunks can be recorded without overlapping newer ones.
+    context_file: a ContextSeries JSONL cache (v5 chunk A). When given, every
+    tick rides its ContextPoint and decisions are logged as wire v2; without
+    it the replay is byte-identical to wire v1. A file whose coverage does
+    not span the replayed window is refused."""
     client = httpx.Client()
     end_ts = int(time.time()) - days_back * 86400 if days_back else None
     bars = fetch_candles(
@@ -57,6 +92,7 @@ def run_backtest(
     client.close()
     if len(bars) < warmup + 30:
         raise SystemExit(f"only got {len(bars)} bars from Coinbase; need >= {warmup + 30}")
+    context = _load_context_series(context_file, bars[warmup].ts, bars[-1].ts)
 
     stamp = tag or datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     out_dir = Path(out_root) / f"backtest-{stamp}"
@@ -86,7 +122,7 @@ def run_backtest(
             recent.append(f"tick {i}: HALTED ({broker.halt_reason})")
             break
 
-        d = s1.decide(tick, broker, rules, recent)
+        d = s1.decide(tick, broker, rules, recent, context=context.at(bar.ts) if context else None)
         acted = None
         if d["mode"] == "exit" and d["final_action"] == "exit":
             broker.close(price, i, reason="LAYA_EXIT")

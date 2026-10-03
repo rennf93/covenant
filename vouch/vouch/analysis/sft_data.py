@@ -152,6 +152,12 @@ def build_dataset(
     tp_net = max(tp_pct - fee_pct, 0.0)
     legacy_skipped = 0
     out: list[dict] = []
+    # Wire versioning (docs/v5-phase1-spec.md): every wire payload names its
+    # format; pre-v5 replays predate the field and are v1 by definition. A
+    # mix inside one dataset means the replay straddled a format change - no
+    # head can be trained on two market renderings (the gold-bug lesson), so
+    # the bake refuses loudly instead of shipping a drifted dataset.
+    versions: set[int] = set()
     for i, (r, price) in enumerate(paired):
         if i + 1 >= len(prices):
             continue
@@ -200,6 +206,8 @@ def build_dataset(
         if wire is None:
             legacy_skipped += 1
             continue
+        version = int(d.get("wire_version", 1))
+        versions.add(version)
         out.append(
             {
                 "state": wire["state"],
@@ -210,8 +218,15 @@ def build_dataset(
                     "fwd_ret": round(fwd, 6),
                     **label_meta,
                     "source_probs": d.get("probs"),
+                    "wire_version": version,
                 },
             }
+        )
+    if len(versions) > 1:
+        raise SystemExit(
+            f"SFT bake refused: decision logs mix wire versions {sorted(versions)} "
+            "in one dataset; bake each replay window with a single engine build "
+            "so every trained market string shares one format"
         )
     if legacy_skipped:
         from vouch.logging import get_logger

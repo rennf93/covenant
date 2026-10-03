@@ -48,6 +48,14 @@ if __name__ == "__main__":
         "for splitting around data holes); record historical chunks with "
         "--data-harvest without overlapping newer ones",
     )
+    ap.add_argument(
+        "--context-file",
+        type=str,
+        default=None,
+        help="ContextSeries JSONL cache (run_context_build.py): attach the "
+        "v5 context point per tick and record wire v2 decisions; must span "
+        "the replay window. Omit for today's wire-v1 behavior",
+    )
     a = ap.parse_args()
 
     if a.fee_bps is not None:
@@ -65,5 +73,6 @@ if __name__ == "__main__":
         use_s2=not a.no_s2,
         data_harvest=a.data_harvest,
         days_back=a.days_back,
+        context_file=a.context_file,
     )
     print(json.dumps(summary, indent=2))

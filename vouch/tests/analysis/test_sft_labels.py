@@ -137,5 +137,50 @@ class BuildDatasetTrioTest(unittest.TestCase):
         self.assertEqual(build_dataset(rows, horizon=2, threshold=0.004), [])
 
 
+class WireVersionMixTest(unittest.TestCase):
+    """v5 wire versioning: a bake must be single-format (the gold-bug
+    lesson). decision.wire_version travels on every wire row; pre-v5 wire
+    rows predate the field and are v1 by definition."""
+
+    @staticmethod
+    def _row(i: int, price: float, wire_version: int | None) -> dict:
+        d = {
+            "mode": "entry",
+            "probs": {"long": 0.4, "flat": 0.3, "short": 0.3},
+            "wire": {"state": {"market": f"wire {i}"}, "questions": ENTRY_QUESTIONS},
+        }
+        if wire_version is not None:
+            d["wire_version"] = wire_version
+        return {"price": price, "ts": f"t{i}", "state": {"market": f"x{i}"}, "decision": d}
+
+    def test_mixed_versions_are_refused_loudly(self):
+        prices = [100.0, 100.5, 101.0, 101.5, 102.0]
+        rows = [
+            self._row(0, prices[0], 1),
+            self._row(1, prices[1], 1),
+            self._row(2, prices[2], 2),
+            self._row(3, prices[3], 2),
+        ]
+        with self.assertRaises(SystemExit) as ctx:
+            build_dataset(rows, horizon=2, threshold=0.004)
+        self.assertIn("mix wire versions [1, 2]", str(ctx.exception))
+
+    def test_single_version_bakes_and_records_it(self):
+        prices = [100.0, 100.5, 101.0, 101.5, 102.0]
+        rows = [self._row(i, p, 2) for i, p in enumerate(prices)]
+        ds = build_dataset(rows, horizon=2, threshold=0.004)
+        self.assertTrue(ds)
+        for pair in ds:
+            self.assertEqual(pair["meta"]["wire_version"], 2)
+
+    def test_pre_v5_wire_rows_default_to_v1(self):
+        prices = [100.0, 100.5, 101.0, 101.5, 102.0]
+        rows = [self._row(i, p, None) for i, p in enumerate(prices)]
+        ds = build_dataset(rows, horizon=2, threshold=0.004)
+        self.assertTrue(ds)
+        for pair in ds:
+            self.assertEqual(pair["meta"]["wire_version"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

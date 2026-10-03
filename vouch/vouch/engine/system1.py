@@ -25,7 +25,9 @@ importing engine) never crosses an in-flight module init, so this is cycle-free.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from vouch.calibration import Calibrator
 from vouch.config import load_settings
@@ -34,6 +36,14 @@ from vouch.engine.market import Tick
 from vouch.engine.rules import Rules
 from vouch.engine.s1_backends import make_s1_backend
 from vouch.protocols import System1Backend
+
+if TYPE_CHECKING:
+    # v5 phase 1: context rides alongside the tick (docs/v5-phase1-spec.md).
+    from vouch.engine.context_features import ContextPoint
+
+# Pinned to %A's English names: strftime would localize the wire v2 weekday
+# under a non-C locale and silently change the served state string.
+_WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 
 class System1:
@@ -47,14 +57,39 @@ class System1:
         path = calibration_path or load_settings().s1.calibration
         self.calibration = Calibrator.load(Path(path))
 
-    def decide(self, tick: Tick, broker: Broker, rules: Rules, recent: list[str]) -> dict:
+    def decide(
+        self,
+        tick: Tick,
+        broker: Broker,
+        rules: Rules,
+        recent: list[str],
+        context: ContextPoint | None = None,
+    ) -> dict:
+        market = (
+            f"SOL/USDC tick {tick.i}. Price {tick.price:.2f}. "
+            f"1m return {tick.ret_1m:+.2%}, 15m {tick.ret_15m:+.2%}, 60m {tick.ret_60m:+.2%}. "
+            f"Volume ratio {tick.volume_ratio:.2f} vs average. "
+            f"60m range {tick.low_60m:.2f}-{tick.high_60m:.2f}."
+        )
+        if context is not None:
+            # Wire v2 market block (docs/v5-phase1-spec.md): fixed field order,
+            # fixed precision - this is a byte-pinned contract, not prose.
+            minute = datetime.fromtimestamp(context.ts, tz=UTC)
+            fund_pp = context.funding_rate_8h * 100
+            fund_chg_pp = fund_pp - context.funding_24h_ago * 100
+            market += (
+                f" Funding {fund_pp:.4f}%/8h, 24h change {fund_chg_pp:+.4f}pp. "
+                f"Open interest ${context.oi_usd_m:.0f}M, "
+                f"1h {context.oi_chg_1h_pct:+.1f}%, 24h {context.oi_chg_24h_pct:+.1f}%. "
+                f"BTC 1m {context.btc_ret_1m:+.2%}, 60m {context.btc_ret_60m:+.2%}, "
+                f"24h {context.btc_ret_24h:+.2%}. "
+                f"Price {context.ema4h_dist_pct:+.1f}% vs 4h EMA, "
+                f"30d range position {context.range_pos_30d * 100:.0f}%, "
+                f"vol regime {context.vol_regime}. "
+                f"{_WEEKDAYS[minute.weekday()]} {minute:%H:%M} UTC."
+            )
         state = {
-            "market": (
-                f"SOL/USDC tick {tick.i}. Price {tick.price:.2f}. "
-                f"1m return {tick.ret_1m:+.2%}, 15m {tick.ret_15m:+.2%}, 60m {tick.ret_60m:+.2%}. "
-                f"Volume ratio {tick.volume_ratio:.2f} vs average. "
-                f"60m range {tick.low_60m:.2f}-{tick.high_60m:.2f}."
-            ),
+            "market": market,
             "position": (
                 f"{broker.position.side} ${broker.position.size_usd:.0f} "
                 f"at {broker.position.entry:.2f}"
@@ -63,9 +98,13 @@ class System1:
             ),
             "recent_trades": "; ".join(recent[-3:]) if recent else "no trades yet this session",
         }
+        # Wire version of the market string above (1 = v1 market-only, 2 = the
+        # context block appended). SFT bakes assert a single version per
+        # dataset, so this must always travel with the decision.
+        wire_version = 2 if context is not None else 1
 
         if broker.position is not None:
-            return self._decide_exit(state, tick, broker, rules)
+            return self._decide_exit(state, tick, broker, rules, wire_version=wire_version)
 
         questions = {
             "action": {
@@ -144,6 +183,7 @@ class System1:
 
         return {
             "mode": "entry",
+            "wire_version": wire_version,
             "raw_action": action,
             "direction": direction,
             "conviction": round(conviction, 3),
@@ -160,7 +200,9 @@ class System1:
             "wire": {"state": state, "questions": questions},
         }
 
-    def _decide_exit(self, state: dict, tick: Tick, broker: Broker, rules: Rules) -> dict:
+    def _decide_exit(
+        self, state: dict, tick: Tick, broker: Broker, rules: Rules, wire_version: int
+    ) -> dict:
         pos = broker.position
         if pos is None:
             # Defensive: exit mode presumes an open position. A None here
@@ -168,6 +210,7 @@ class System1:
             # call; hold rather than crash the loop.
             return {
                 "mode": "exit",
+                "wire_version": wire_version,
                 "raw_action": "hold",
                 "direction": "hold",
                 "conviction": 0.0,
@@ -218,6 +261,7 @@ class System1:
         ok = p_exit >= rules.exit_pressure_min
         return {
             "mode": "exit",
+            "wire_version": wire_version,
             "raw_action": answers["exit"]["choice"],
             "direction": "exit" if ok else "hold",
             "conviction": round(exit_conviction, 3),

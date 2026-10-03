@@ -331,3 +331,38 @@ replays out/backtest-calft-v4{,b}; model ~/colibri/checkpoints/
 laya-vouch-v3. Harness windows: always pass explicit --holdout-start/
 --holdout-end matching the dataset's 90/10 split (the stale 3-day
 defaults caused one invalid scoring round).
+
+## Context cache (v5 Phase 1, chunk A)
+
+`run_context_build.py` builds the System-1 context cache that the v2 wire
+state consumes (docs/v5-phase1-spec.md): per-minute funding, open interest,
+BTC lead, 4h-EMA distance, 30d range position, and an hourly-vol regime,
+from three keyless public sources:
+
+- Funding: Binance fapi /fapi/v1/fundingRate (8h entries, full history,
+  forward-filled on the 1m grid; the 24h-ago value is the nearest entry,
+  never interpolated).
+- Open interest: data.binance.vision daily metrics zips (5m rows;
+  sum_open_interest_value is USD notional; full history - the
+  openInterestHist REST API only serves 30 days and is NOT used). Verified
+  live 2026-10-03: one CSV per zip, complete 5m UTC grid, rows in arbitrary
+  order (the parser sorts), and the day's zip appears only after the UTC
+  day completes - a same-day build forward-fills the tail.
+- BTC lead: Coinbase BTC-USD 1m candles through the existing fetch_candles
+  (require_complete; a 33-day lookback verified working, ~50s per product,
+  so the 30d warm-up lookback is fetchable in practice).
+
+```bash
+.venv/bin/python run_context_build.py --days-back 3 --product SOLUSDT \
+    --out out/context-sol.jsonl
+```
+
+The CLI fetches 30 days of extra lookback so ema4h (SMA-seeded EMA span 30
+on 4h bars), the trailing 30d range window, and the 24h baselines are
+computed from full history; rows whose pinned lookback was not fetchable
+carry "warmup": true and consumers may drop them. Gaps refuse loudly
+(fetch_candles completeness for bars, > 3 missing 5m OI rows for open
+interest, > 15 missing minutes on cache load). Rebuilding the same window
+is byte-identical (tested). Derived-field definitions and thresholds are
+pre-registered in docs/v5-phase1-spec.md - change them there first, then
+the code.
