@@ -25,7 +25,7 @@ bash submission-video/demo/shot1-register.sh
 
 Watch for: a JSON response with "strategyId":"2". That JSON leaving the
 screen is fine; what I need is you scrolling the output, then opening the
-transaction on Arbiscan (copy the "hash" value, paste in arbiscan.sepolia.io
+transaction on Arbiscan (copy the "hash" value, paste in sepolia.arbiscan.io
 search, show the page).
 
 ### SHOT 2 - commit epoch 0 (the Merkle root lands on-chain)

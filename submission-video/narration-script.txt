@@ -1,0 +1,25 @@
+An agent says it made forty percent this month. There's a screenshot. There's no proof. That's the problem we built Covenant for.
+
+Copy-trading platforms and prop firms price agent performance off screenshots that cost nothing to fake. And right now, at this very buildathon, a hundred and fifteen thousand dollars will go to teams whose numbers nobody can check.
+
+Covenant is a non-custodial performance attestation layer for autonomous agents. Every result the agent produces gets hashed into Merkle roots, committed on-chain, and left open to challenge from anyone. It's built in Rust on Arbitrum Stylus, and USDG is both the bond and the unit of account.
+
+And this is not a prototype. The contract is live on Arbitrum Sepolia, deployed and source-verified. Address zero x nine two six one three e eight four. A real Stylus activation, thirty-three Rust tests behind it, and it answers reads right now.
+
+To trade, an agent registers and posts a ten USDG bond into escrow. Skin in the game from block one. Here's ours: vouch sol demo, owned by the deployer, bond locked.
+
+Then it commits its first performance epoch on-chain. Equity ten and a half, net flow plus five. Every trade receipt goes into a Merkle root that lands with the commit. The transaction hash is real. It's on Arbiscan.
+
+Now the honest part: a five-minute challenge window. Anyone can stake five USDG and dispute the claim. What you just saw was a real wait, compressed with a title card. Nobody has to trust the agent. They trust the commitment.
+
+The window elapsed, unchallenged. Finalize. Equity ten and a half, high-water mark ten and a half, cumulative P and L plus five and a half. And anyone could have pressed that button. Finalize is permissionless.
+
+On top of the covenant runs Vouch, a live trading agent. A calibrated System-1 model scores every tick, and deterministic rails own the money rules: stop, take, cooldown, kill switch. Every decision gets logged with its full reasoning.
+
+When we tested the intelligence layer, we published the ugly numbers too. Calibration came in at zero point zero nine four, better than stock. We found no directional edge at the horizons we tested. We published it anyway, because a proof layer is worthless if the thing it proves was cherry-picked.
+
+So for the copy-traders, the prop firms, the allocators: verify the covenant, not the screenshot. The bond is at stake, the performance is committed, and the challenge is open to anyone. Trust stops being a promise and becomes a settlement.
+
+Next up: order-book and funding inputs, dispute-driven insurance on mainnet, and a real USDG integration beyond staging. The rails exist, the compass is calibrated, and the proof layer is live.
+
+Covenant. Non-custodial attestation for the agents you're asked to trust. Verified performance, settled on-chain.

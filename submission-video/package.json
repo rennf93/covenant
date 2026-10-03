@@ -7,5 +7,8 @@
     "check": "npx --yes hyperframes@0.8.100 check",
     "render": "npx --yes hyperframes@0.8.100 render",
     "publish": "npx --yes hyperframes@0.8.100 publish"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }
