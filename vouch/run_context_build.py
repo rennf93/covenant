@@ -32,6 +32,10 @@ from vouch.engine.context_features import (
     write_jsonl,
 )
 
+# warmup-lookback fills up to this many dead minutes per stretch are filled
+# (announced + warmup-flagged downstream); longer stretches refuse the build
+WARMUP_GAP_FILL_MAX = 720
+
 
 def candles_product(perp_symbol: str) -> str:
     """SOLUSDT (fapi / metrics naming) -> SOL-USD (Coinbase spot naming)."""
@@ -57,19 +61,33 @@ def main() -> None:
 
     end = a.end_ts if a.end_ts else int(time.time()) // 60 * 60
     window_start = end - a.days_back * 86400
-    lookback_minutes = (a.days_back + WARMUP_LOOKBACK_DAYS) * 1440
+    fills: list[tuple[int, int]] = []
 
-    with httpx.Client() as client:
-        sol = fetch_candles(
+    def fetch_product(client: httpx.Client, product: str) -> list:
+        """Warmup-lookback history allows bigger announced fills (it only
+        feeds EMA/range/vol baselines and rows are warmup-flagged for it);
+        the output window stays strict - it becomes training states."""
+        out = fetch_candles(
             client,
-            product=candles_product(a.product),
-            minutes=lookback_minutes,
+            product=product,
+            minutes=a.days_back * 1440,
             end_ts=end,
             require_complete=True,
         )
-        btc = fetch_candles(
-            client, product="BTC-USD", minutes=lookback_minutes, end_ts=end, require_complete=True
+        back = fetch_candles(
+            client,
+            product=product,
+            minutes=WARMUP_LOOKBACK_DAYS * 1440,
+            end_ts=window_start,
+            require_complete=True,
+            gap_fill_max=WARMUP_GAP_FILL_MAX,
+            fill_report=fills,
         )
+        return back + out
+
+    with httpx.Client() as client:
+        sol = fetch_product(client, candles_product(a.product))
+        btc = fetch_product(client, "BTC-USD")
         funding = fetch_funding(
             client,
             symbol=a.product,
@@ -84,6 +102,11 @@ def main() -> None:
         )
 
     built = build_context_points(sol, btc, funding, oi, window_start, end)
+    if fills:
+        span = WARMUP_LOOKBACK_DAYS * 86400
+        built = [
+            (p, w or any(fs < p.ts and fe > p.ts - span for fs, fe in fills)) for p, w in built
+        ]
     write_jsonl(built, a.out)
     warmup_rows = sum(1 for _, warm in built if warm)
     print(
@@ -92,6 +115,7 @@ def main() -> None:
                 "out": a.out,
                 "rows": len(built),
                 "warmup_rows": warmup_rows,
+                "warmup_fill_stretches": fills,
                 "window_start": window_start,
                 "end": end,
                 "product": a.product,

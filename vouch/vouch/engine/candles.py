@@ -44,14 +44,20 @@ def fetch_candles(
     minutes: int = 1440,
     end_ts: int | None = None,
     require_complete: bool = False,
+    gap_fill_max: int = 15,
+    fill_report: list[tuple[int, int]] | None = None,
 ) -> list[Bar]:
     """Pull `minutes` of 1m candles ending at end_ts (default: now).
 
     Each 300-bar chunk is retried on a short/empty response: a silent hole
     in the middle of a recording session poisons everything downstream
     (labels, calibration, SFT), so holes are never acceptable by default.
-    With require_complete=True, any missing minute raises instead of
-    returning a gapped series - used by recording runs."""
+    With require_complete=True, missing minutes are reconstructed as flat
+    zero-volume bars up to gap_fill_max per stretch (default 15); a dead
+    stretch bigger than the cap raises instead of returning a gapped
+    series. gap_fill_max only loosens the FILL cap for warmup-only history
+    (data that never becomes a training state); the announcement stays
+    loud either way."""
     end = int(int(end_ts) if end_ts else time.time()) // 60 * 60  # ints: the API 400s on floats
     start = end - minutes * 60
     bars_by_ts: dict[int, Bar] = {}
@@ -90,20 +96,25 @@ def fetch_candles(
         # than the cap is a feed outage, not a quiet market, and refuses the
         # series. Filled minutes are always counted out loud - silent holes
         # are never acceptable downstream.
-        gap_fill_max = 15
         filled: list[Bar] = []
         skipped = 0
         run = 0
         idx = 0
         ts = start
+        stretch_start: int | None = None
         prev_close = bars[0].open if bars else 0.0
         while ts < end:
             if idx < len(bars) and bars[idx].ts == ts:
+                if stretch_start is not None and fill_report is not None:
+                    fill_report.append((stretch_start, ts))
+                stretch_start = None
                 filled.append(bars[idx])
                 prev_close = bars[idx].close
                 idx += 1
                 run = 0
             else:
+                if stretch_start is None:
+                    stretch_start = ts
                 run += 1
                 if run > gap_fill_max:
                     raise SystemExit(
@@ -122,6 +133,8 @@ def fetch_candles(
                     )
                 )
             ts += 60
+        if stretch_start is not None and fill_report is not None:
+            fill_report.append((stretch_start, end))
         if skipped:
             print(
                 f"fetch_candles: filled {skipped} dead minutes as flat zero-volume "
