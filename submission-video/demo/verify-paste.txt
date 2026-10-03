@@ -1,0 +1,15 @@
+PASTE THESE FOUR VALUES INTO THE VERIFY PAGE (localhost:3000/verify)
+
+Field "Strategy id":      2
+
+Field "Epoch index":      0
+
+Field "Receipt hash":     0x9e95a8466db9fabc97ae212ee161023b957117e4a466b6385de001a199536cee
+
+Field "Merkle proof" (the big box, one line each):
+0xccdb3b878d11d8898151974815ee1219e5e8e511de7fa98e344b8ae424667d5d
+0x9da0dd22c4cc22eacb16cfed1ebf388b314d4a44cf963854a941deb67549f612
+0x271f531ef4a35ddf57682dc1f98177715278ae05a2f42b6d052fc340e3628715
+
+Then click "Verify onchain" -> expect the green VERIFIED stamp.
+For the fail shot: change ONE character of any hash -> expect REJECTED.

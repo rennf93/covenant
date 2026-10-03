@@ -1,5 +1,5 @@
 /**
- * Builds the demo epoch-0 commit package for strategy 2 ("vouch-sol-live"):
+ * Builds the demo epoch-0 commit package for strategy 2 ("vouch-sol-demo"):
  * five canonical receipts from real recent SOL-USD prices (Coinbase, fetched
  * live), the Merkle root, and one receipt + proof for the browser verifier.
  * Receipts are demo paper fills; the hashing and tree are the real SDK
@@ -51,7 +51,7 @@ const leaves = payload.receipts;
 const out = {
   builtAt: new Date().toISOString(),
   strategyId: "2",
-  strategyName: "vouch-sol-live",
+  strategyName: "vouch-sol-demo",
   epochIndex: "0",
   equity: "10500000",
   netFlow: "5000000",

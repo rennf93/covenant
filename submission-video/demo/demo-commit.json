@@ -1,7 +1,7 @@
 {
   "builtAt": "2026-10-03T19:05:01.525Z",
   "strategyId": "2",
-  "strategyName": "vouch-sol-live",
+  "strategyName": "vouch-sol-demo",
   "epochIndex": "0",
   "equity": "10500000",
   "netFlow": "5000000",

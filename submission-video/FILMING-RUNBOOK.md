@@ -1,96 +1,87 @@
 # FILMING RUNBOOK: Covenant live demo (Oct 3)
 
-Everything below is prepared and running. Read this once, then record.
-Target: one continuous take is fine; you will trim to 12-20s for the video slot.
+Every command is already finished and filled in. You run ONE line per shot.
+You never read the narration script (it is a recorded robot voice), you never
+edit anything, you just paste-and-press-enter. Total: about 10 minutes of
+footage, most of it waiting.
 
 ## Before you hit record
 
-1. Terminal: open a fresh tab, font zoomed (cmd +), cd:
-   `cd /Users/renzof/Documents/GitHub/ZZZ/covenant`
+1. Terminal: fresh tab, font zoomed (cmd +).
 2. Browser tabs, in this order:
-   - http://localhost:3000  (the leaderboard; strategy "vouch-sol-demo" must be visible - it is indexed live from the chain)
-   - https://sepolia.arbiscan.io/address/0x92613e84e3473f3886172947ecdff3627978fd18  (the verified main contract)
-   - http://localhost:3000/verify  (the receipt verifier)
-3. MetaMask: network "Arbitrum Sepolia" (RPC https://arbitrum-sepolia.publicnode.com, chain 412346), account 0x7c3C...C7d5 (the deployer, already imported).
-4. Screen recorder: 1920x1080 (QuickTime > File > New Screen Recording, or OBS). 30fps.
+   - http://localhost:3000  (leaderboard; "vouch-sol-demo" is already listed)
+   - https://sepolia.arbiscan.io/address/0x92613e84e3473f3886172947ecdff3627978fd18
+   - http://localhost:3000/verify
+3. Screen recorder: 1920x1080, fullscreen, hit record BEFORE shot 1 and just
+   leave it running through everything, including the wait.
 
-## The take (in order)
+## The shots
 
-### Shot 1: Register (the bond)
-Paste and run:
-
-```bash
-export RPC=https://arbitrum-sepolia.publicnode.com
-export COV=0x1de6ccb02f29308851a9f59c09845c6d348d16a4
-export PK=$(grep DEPLOYER_PRIVATE_KEY ~/.config/covenant-deploy/deployer.env | cut -d= -f2)
-echo '{"action":"register","name":"vouch-sol-live","metadataUri":"https://github.com/rennf93/covenant"}' \
-  | COVENANT_RPC_URL=$RPC COVENANT_CONTRACT_ADDRESS=$COV COVENANT_PRIVATE_KEY=$PK \
-  node vouch/vouch/attest/bridge.mjs
-```
-
-Expected output: `{"hash":"0x...","strategyId":"2","chainId":421614}`.
-This pulls the 10 mock-USDG bond into escrow on camera. Click through to the
-tx on Arbiscan (or paste the hash into arbiscan.sepolia.io search).
-
-### Shot 2: Commit epoch 0 (the root lands)
+### SHOT 1 - register (bond leaves the wallet on camera)
 
 ```bash
-echo '{"action":"commit","strategyId":"2","epochIndex":"0","equity":"10500000","netFlow":"5000000","tradesRoot":"ROOT_FROM_BELOW","evidenceUri":"https://github.com/rennf93/covenant/tree/main/submission-video/demo"}' \
-  | COVENANT_RPC_URL=$RPC COVENANT_CONTRACT_ADDRESS=$COV COVENANT_PRIVATE_KEY=$PK \
-  node vouch/vouch/attest/bridge.mjs
+bash submission-video/demo/shot1-register.sh
 ```
 
-IMPORTANT: replace ROOT_FROM_BELOW with the tradesRoot value from
-`submission-video/demo/demo-commit.json` (built from five real receipts at
-real SOL prices; the JSON also holds the leaf hashes and the verify proof).
-The receipts are canonical SDK receipts - the same encode/hashing the
-contract's onchain verifier enforces.
+Watch for: a JSON response with "strategyId":"2". That JSON leaving the
+screen is fine; what I need is you scrolling the output, then opening the
+transaction on Arbiscan (copy the "hash" value, paste in arbiscan.sepolia.io
+search, show the page).
 
-### Shot 3: The leaderboard (live, indexed from chain events)
-Switch to the localhost:3000 tab. Within ~1 min of the commit,
-"vouch-sol-live" appears with epoch 0 pending and the challenge countdown.
-The 5-minute window is real - let it run while you shoot other angles.
-
-### Shot 4: The receipt verifier
-On the /verify tab: paste `receiptHash` and `proof` from
-`demo-commit.json` (verifyOne). It verifies against the committed root from
-the browser, direct to the RPC. Then flip one character of the proof and
-watch it fail. This is the "no indexer, no trust" moment - linger here.
-
-### Shot 5: Finalize (permissionless) after the 5-minute window
-When the countdown ends:
+### SHOT 2 - commit epoch 0 (the Merkle root lands on-chain)
 
 ```bash
-echo '{"action":"finalize","strategyId":"2","epochIndex":"0"}' \
-  | COVENANT_RPC_URL=$RPC COVENANT_CONTRACT_ADDRESS=$COV COVENANT_PRIVATE_KEY=$PK \
-  node vouch/vouch/attest/bridge.mjs
+bash submission-video/demo/shot2-commit.sh
 ```
 
-Then the read that proves accounting:
+Watch for: a JSON response with "hash". Copy that hash into Arbiscan search
+and show the transaction page (it decodes the commit). This is the money
+shot; give it a few extra seconds.
+
+### SHOT 3 - the live leaderboard
+
+Switch to the localhost:3000 tab. Refresh. The new strategy (id 2) appears
+with epoch 0 pending and a challenge countdown. Do NOT frame the old row
+(id 1, the one with big raw numbers) - film the id 2 row, or click it and
+show its detail page. Then let the countdown run. Keep recording; browse
+other tabs for 5 minutes. The wait is real and I compress it in the edit.
+
+### SHOT 4 - the browser receipt verifier
+
+Go to localhost:3000/verify. Open
+`submission-video/demo/verify-paste.txt` and copy its four values into the
+four fields (the three proof hashes go in the big box, one per line).
+Click "Verify onchain" -> green VERIFIED stamp. Linger 3 seconds.
+Then delete one character of any hash and click again -> REJECTED. Linger.
+
+### SHOT 5 - finalize (only after the countdown hits zero)
 
 ```bash
-echo '{"action":"getPerformance","strategyId":"2"}' \
-  | COVENANT_RPC_URL=$RPC COVENANT_CONTRACT_ADDRESS=$COV node vouch/vouch/attest/bridge.mjs
+bash submission-video/demo/shot5-finalize.sh
+bash submission-video/demo/shot5b-performance.sh
 ```
 
-Expected: equity 10500000 (10.5), highWaterMark 10500000, cumulativePnl 5500000 (+5.5),
-epochCount 1, finalizedEpochs 1.
+The second command prints the final numbers. For the camera, prefer the
+website: refresh the strategy's detail page on localhost:3000 and show
+EQUITY 10.5, HIGH-WATER MARK 10.5, CUMULATIVE PNL +5.5 - exactly what the
+narration speaks.
 
-### Shot 6: Arbiscan close-up
-- Main contract page (verified badge): 0x92613e84e3473f3886172947ecdff3627978fd18
-- The demo instance: https://sepolia.arbiscan.io/address/0x1de6ccb02f29308851a9f59c09845c6d348d16a4
-- The commit tx from Shot 2 (show EpochCommitted event decoded).
-- Mock USDG token page: 0x8428da91ee8d2963182aa440816d7349882e64ce
-  (the bond transfer, labeled mock on screen per the honesty rule).
+### SHOT 6 - Arbiscan close-ups (30 seconds)
+
+- The verified main contract: 0x92613e84e3473f3886172947ecdff3627978fd18
+  (show the verified checkmark area).
+- The commit tx page from shot 2 (scroll the decoded event).
+- https://sepolia.arbiscan.io/token/0x8428da91ee8d2963182aa440816d7349882e64ce
+  (the mock USDG token; it must look obviously like a test token on screen -
+  the honesty rule wants "mock" visible or implied).
+
+## If anything errors
+
+Stop recording that shot only, paste me the error, I fix it, you re-run that
+one script. Nothing else breaks.
 
 ## After filming
 
-Hand the raw recording to ZCode (drop it in submission-video/, any format,
-QuickTime .mov is fine). It gets trimmed into the reserved 12-20s slot and
-the final video is re-rendered with the intro/outro around it.
-
-## Honesty rules (from the storyboard - non-negotiable)
-
-- Mock USDG must be labeled mock whenever shown.
-- The 5-minute wait is real; in the final cut it is compressed with a title card.
-- Every address on screen comes from this runbook.
+Drop the raw file in submission-video/ (any format, .mov is fine) and tell
+me. I trim the 12-20s slot, fix the one stale scene number, re-render, hand
+you the final mp4 for upload.
