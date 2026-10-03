@@ -27,19 +27,35 @@ returns (`vouch/README.md`).
 ```
  fills (CEX/DEX)   commitEpoch + challenges/stakes
       |                        |
-┌─────▼──────┐        ┌───────▼─────────────┐
+┌─────▼───────┐        ┌───────▼─────────────┐
 │ vouch agent │------->│ Stylus contract     │<-- resolver (uphold|dismiss)
 │ receipts +  │        │ (Arbitrum, USDG     │
 │ evidence    │        │  escrow, slashing)  │
-└────────────┘        └───────┬─────────────┘
-                              │ events
-                       ┌──────▼──────┐
-                       │ indexer (TS)│  getLogs -> reducer -> JSON API
-                       └──────┬──────┘
-                       ┌──────▼───────┐
-                       │ web (Next.js)│  leaderboard + trustless
-                       └──────────────┘  browser receipt verifier
+└─────────────┘        └───────┬─────────────┘
+                               │ events
+                        ┌──────▼──────┐
+                        │ indexer (TS)│  getLogs -> reducer -> JSON API
+                        └──────┬──────┘
+                        ┌──────▼───────┐
+                        │ web (Next.js)│  leaderboard + trustless
+                        └──────────────┘  browser receipt verifier
 ```
+
+## Live on Arbitrum Sepolia
+
+Deployed, source-verified via reproducible Stylus build, exercised end to end
+on-chain (register with USDG bond, commit epoch, 5-minute challenge window,
+permissionless finalize, on-chain receipt verification):
+
+| Contract | Address | Note |
+| --- | --- | --- |
+| Covenant (main) | [`0x92613E84e3473f3886172947ecdff3627978Fd18`](https://sepolia.arbiscan.io/address/0x92613e84e3473f3886172947ecdff3627978fd18) | real Paxos USDG constructor args |
+| Covenant (demo instance) | [`0x1de6cCb02f29308851A9F59C09845C6D348d16a4`](https://sepolia.arbiscan.io/address/0x1de6ccb02f29308851a9f59c09845c6d348d16a4) | lifecycle demo on a clearly-labeled mock USDG (`0x8428da91...`) |
+
+Videos: [submission-video/covenant.mp4](submission-video/covenant.mp4) (pitch,
+3 min) and [submission-video/demo/covenant-demo.mp4](submission-video/demo/covenant-demo.mp4)
+(60-second live walkthrough). Demo artifacts and evidence:
+[submission-video/demo/](submission-video/demo/).
 
 ## Layout
 
