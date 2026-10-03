@@ -39,7 +39,7 @@ Covenant is a non-custodial performance attestation layer for autonomous trading
 - Deployed Covenant Stylus contract on Arbitrum Sepolia: 0x92613e84e3473f3886172947ecdff3627978fd18
 - Source-verified via reproducible cargo stylus build ("Verification successful")
 - Built mock-USDG test token (0x8428da91ee8d2963182aa440816d7349882e64ce) for staging bond/stake flows
-- Deployed demo Covenant instance (0x018e24d3e2c537bcfa0194a8cfd566536c588925) on mock token
+- Deployed demo Covenant instance (0x1de6ccb02f29308851a9f59c09845c6d348d16a4) on mock token
 - Executed full on-chain lifecycle: register strategy (10 USDG bond escrowed) → commit epoch 0 (equity 10.5, net flow +5) → 5-minute challenge window elapsed → finalize (permissionless)
 - Built Vouch trading agent: calibrated System-1 compass, deterministic rails, full audit log
 - Ran rigorous model evaluation: ECE 0.094 vs stock 0.101; published negative result on directional edge
@@ -62,7 +62,9 @@ Covenant (verified): 0x92613e84e3473f3886172947ecdff3627978fd18
 https://sepolia.arbiscan.io/address/0x92613e84e3473f3886172947ecdff3627978fd18
 
 Mock USDG (test token): 0x8428da91ee8d2963182aa440816d7349882e64ce
-Demo Covenant (mock instance): 0x018e24d3e2c537bcfa0194a8cfd566536c588925
+Demo Covenant (mock instance): 0x1de6ccb02f29308851a9f59c09845c6d348d16a4
+Register tx: 0x7c1434d94ef60ff85b9728bc845ce9a44e436e02cbe266f72a8c9be440e30c82
+Commit tx (epoch 0): 0x5ee0601a7ecd2de871b9f0fd43b078ddf16a746054ca32af5638592532990c85
 
 Deploy tx: 0xba9d0debff4618f160383882338db28f82a1c00d394023472cf147a97e7d03b2
 Verification: cargo stylus verify — "Verification successful"

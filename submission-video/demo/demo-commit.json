@@ -1,0 +1,68 @@
+{
+  "builtAt": "2026-10-03T19:05:01.525Z",
+  "strategyId": "2",
+  "strategyName": "vouch-sol-live",
+  "epochIndex": "0",
+  "equity": "10500000",
+  "netFlow": "5000000",
+  "tradesRoot": "0xfd38304e81c85a8606c61956372d3f4fc8f846582de73c39fb785a1b71de98b7",
+  "evidenceURI": "https://github.com/rennf93/covenant/tree/main/submission-video/demo",
+  "fills": [
+    {
+      "orderId": "demo-sol-1791054001-0",
+      "side": 0,
+      "size": "0.200",
+      "price": "119.87",
+      "fee": "0.0719",
+      "filledAt": 1791054001
+    },
+    {
+      "orderId": "demo-sol-1791054001-1",
+      "side": 1,
+      "size": "0.300",
+      "price": "119.92",
+      "fee": "0.1079",
+      "filledAt": 1791054031
+    },
+    {
+      "orderId": "demo-sol-1791054001-2",
+      "side": 0,
+      "size": "0.400",
+      "price": "119.92",
+      "fee": "0.1439",
+      "filledAt": 1791054061
+    },
+    {
+      "orderId": "demo-sol-1791054001-3",
+      "side": 1,
+      "size": "0.200",
+      "price": "119.92",
+      "fee": "0.0720",
+      "filledAt": 1791054091
+    },
+    {
+      "orderId": "demo-sol-1791054001-4",
+      "side": 0,
+      "size": "0.300",
+      "price": "119.88",
+      "fee": "0.1079",
+      "filledAt": 1791054121
+    }
+  ],
+  "receipts": [
+    "0x87dab42f318ede0438513a1114c40d5353c6907f54fd5be254aa9f00ad44958b",
+    "0x51c57e85c0ecb4b83ee24f5b419930fe7f73c2897aaec30c97cb90d55cd559c3",
+    "0x9e95a8466db9fabc97ae212ee161023b957117e4a466b6385de001a199536cee",
+    "0xccdb3b878d11d8898151974815ee1219e5e8e511de7fa98e344b8ae424667d5d",
+    "0xc3aaa0d2413aa792bda4943b39c3dfaa8f6c9d99f2eb73c59407045ce1cd5fbb"
+  ],
+  "verifyOne": {
+    "index": 2,
+    "receiptHash": "0x9e95a8466db9fabc97ae212ee161023b957117e4a466b6385de001a199536cee",
+    "proof": [
+      "0xccdb3b878d11d8898151974815ee1219e5e8e511de7fa98e344b8ae424667d5d",
+      "0x9da0dd22c4cc22eacb16cfed1ebf388b314d4a44cf963854a941deb67549f612",
+      "0x271f531ef4a35ddf57682dc1f98177715278ae05a2f42b6d052fc340e3628715"
+    ]
+  }
+}
