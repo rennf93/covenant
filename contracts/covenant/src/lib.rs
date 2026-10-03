@@ -226,5 +226,4 @@ impl Covenant {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod test;

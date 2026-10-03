@@ -10,7 +10,7 @@
 //!  - An empty epoch must not commit a tree; callers store B256::ZERO and
 //!    verification against it always fails.
 
-use alloy_primitives::{keccak256, B256};
+use alloy_primitives::{B256, keccak256};
 
 /// Internal node hash: keccak256 of the pair concatenated in sorted order.
 pub fn sorted_pair_hash(a: B256, b: B256) -> B256 {
