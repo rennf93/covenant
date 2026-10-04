@@ -20,3 +20,5 @@ coverage/tmp/
 HANDOFF-SESSION.md
 renders/
 indexer/covenant-state.json
+kaggle/context-dataset/*.jsonl
+vouch/checkpoints/
