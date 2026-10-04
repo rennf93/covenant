@@ -7,10 +7,15 @@ home directory. Too big and too reproducible to commit.
 | Item | What it is |
 | --- | --- |
 | `laya-vouch-v3/` | The gold-fixed v3 fine-tune (Kaggle T4, 7mo data). Honest calibration (ECE 0.094), no edge - the verdict file has the numbers. |
-| `clef-flash/` | Cloudflare's 9B decision model (BF16), staged for the v5 judge/System-1 spikes. |
 | `acceptance-verdict*.txt` | Pre-registered acceptance results per attempt (v1/v2/v3-real). |
 | `*.log` | Recording campaign, deploy-watcher, replay and serve logs. |
 
 Old references in session notes to `~/colibri/checkpoints/...` now resolve
-here. `kg-v03` (the parallel session's multilingual run) stays at
-`~/colibri/checkpoints/kg-v03` on purpose - different matter, hands off.
+here. TWO directories under `~/colibri/checkpoints/` are NOT ours and must
+never be moved or touched:
+
+- `kg-v03` - the parallel session's multilingual run (user directive).
+- `clef-flash` - an active workspace of another session (downloaded and
+  used Oct 3, has its own pycache). If v5 needs a local clef-flash copy,
+  download a fresh one into this directory under a different name; never
+  move or reuse that one.
