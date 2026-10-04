@@ -145,7 +145,7 @@ def main() -> None:
                 if m.get("status") == "recorded" and m.get("tag"):
                     done_tags.add(str(m["tag"]))
         except ValueError:
-            log(f"record-manifest.json unreadable; starting the plan fresh")
+            log("record-manifest.json unreadable; starting the plan fresh")
 
     manifest: list[dict[str, object]] = []
     for tag, ws, we in plan:
