@@ -11,8 +11,10 @@ from vouch.engine.candles import fetch_candles
 
 
 class FakeResponse:
-    def __init__(self, rows: list[list[float]]):
+    def __init__(self, rows: list[list[float]], status_code: int = 200):
         self._rows = rows
+        self.status_code = status_code
+        self.headers: dict[str, str] = {}
 
     def raise_for_status(self) -> None:
         return None
@@ -108,3 +110,19 @@ class FetchCandlesCompletenessTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RateLimitRetryTest(unittest.TestCase):
+    """429 on a shared egress IP (Kaggle/CI) must back off and retry, not
+    kill the recording: the 2026-10-04 full campaign died on its first
+    unhandled 429."""
+
+    def test_429_is_backed_off_and_retried(self):
+        with patch("vouch.engine.candles.httpx.Client") as client_cls:
+            client = client_cls.return_value
+            ok = FakeResponse(chunk_rows(1770000000, 10))
+            limited = FakeResponse([], status_code=429)
+            client.get.side_effect = [limited, limited, ok]
+            bars = fetch_candles(client, minutes=10, end_ts=1770000540, require_complete=True)
+            self.assertEqual(len(bars), 10)
+            self.assertGreaterEqual(client.get.call_count, 3)
