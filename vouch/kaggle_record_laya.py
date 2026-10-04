@@ -42,13 +42,14 @@ def log(msg: str) -> None:
 
 
 def discover(name_hint: str, marker: str) -> Path:
-    """Find /kaggle/input/*/ dir containing `marker` (file or dir name)."""
+    """Find the dir under /kaggle/input containing `marker`, at any depth
+    (Kaggle may nest the uploaded folder inside the dataset)."""
     root = Path("/kaggle/input")
     if root.exists():
-        for d in sorted(root.iterdir()):
-            if (d / marker).exists():
-                return d
-    raise SystemExit(f"could not find {name_hint}: no /kaggle/input/*/ contains {marker}")
+        hits = sorted(p.parent for p in root.glob(f"**/{marker}"))
+        if hits:
+            return hits[0]
+    raise SystemExit(f"could not find {name_hint}: nothing under /kaggle/input contains {marker}")
 
 
 def cache_span(cache: Path) -> tuple[int, int]:
