@@ -191,8 +191,8 @@ Mac (torch 2.14 MPS, fp32, stock checkpoint read-only from the HF cache).
 
        cd vouch && /Users/renzof/colibri/laya-venv/bin/python -u run_train_laya.py \
            --data out/sft-laya-barrier.jsonl \
-           --out ~/colibri/checkpoints/laya-vouch-v1 --epochs 2 \
-           > ~/colibri/checkpoints/train-laya-v1.log 2>&1 &
+           --out vouch/checkpoints/laya-vouch-v1 --epochs 2 \
+           > vouch/checkpoints/train-laya-v1.log 2>&1 &
 
    Chronological holdout = the last 10% of rows (2026-09-22T23:50Z ..
    2026-09-25T23:43Z); training never sees it; temperatures refit on it.
@@ -200,7 +200,7 @@ Mac (torch 2.14 MPS, fp32, stock checkpoint read-only from the HF cache).
 2. Serve OUR checkpoint on its own port (:9989 stays stock):
 
        /Users/renzof/colibri/laya-venv/bin/python run_serve_vouch_laya.py \
-           --checkpoint ~/colibri/checkpoints/laya-vouch-v1 --port 9988
+           --checkpoint vouch/checkpoints/laya-vouch-v1 --port 9988
 
 3. Replay the holdout window against it (~25 min: ~5.8k 1m bars at
    ~0.25s/call) with the pin set so provenance is clean:
@@ -230,7 +230,7 @@ Mac (torch 2.14 MPS, fp32, stock checkpoint read-only from the HF cache).
 
 The full run (2 epochs, 38,825 train rows, launchd-isolated, leak-hardened,
 commits 3031a11/64db253) completed and saved
-`~/colibri/checkpoints/laya-vouch-v1`; the acceptance replay ran the same
+`vouch/checkpoints/laya-vouch-v1`; the acceptance replay ran the same
 holdout window through it (`out/backtest-calft-vouch`, 5,740 decisions,
 provenance-pinned `vouch-v1` on :9988). Verdict, on 4,313 window entry
 rows / 58 barrier-tradeable:
@@ -254,7 +254,7 @@ retraining. Structural fixes are economics decisions for the user: longer
 barrier horizons, maker fees, or looser brackets to widen the 58-row
 tradeable set; or more diverse training data (the 30-day window has one
 regime). :9988 server relaunch: run_serve_vouch_laya.py --checkpoint
-~/colibri/checkpoints/laya-vouch-v1 --port 9988.
+vouch/checkpoints/laya-vouch-v1 --port 9988.
 
 Rules that keep the data honest:
 
@@ -291,7 +291,7 @@ new brackets:
   usable bars - the candle lookback cap must be measured before promising
   more-history scale.
 
-Verdict file ~/colibri/checkpoints/acceptance-verdict-v2.txt; FT replay
+Verdict file vouch/checkpoints/acceptance-verdict-v2.txt; FT replay
 out/backtest-calft-vouch-v2. Rails stay, EV gate OFF, stock english
 serves. Stale-server lesson: the :9988 health check must be asserted to
 report the EXPECTED checkpoint name before any replay (a v1 leftover
@@ -326,8 +326,8 @@ richer state features (book, funding, cross-asset, HTF structure), maker
 execution (BE 0.60 -> ~0.40), different venue/asset/timeframe - or
 accept the negative result and run rails-only with the gate off.
 
-Verdict file ~/colibri/checkpoints/acceptance-verdict-v3-real.txt; FT
-replays out/backtest-calft-v4{,b}; model ~/colibri/checkpoints/
+Verdict file vouch/checkpoints/acceptance-verdict-v3-real.txt; FT
+replays out/backtest-calft-v4{,b}; model vouch/checkpoints/
 laya-vouch-v3. Harness windows: always pass explicit --holdout-start/
 --holdout-end matching the dataset's 90/10 split (the stale 3-day
 defaults caused one invalid scoring round).
