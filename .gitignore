@@ -23,3 +23,4 @@ indexer/covenant-state.json
 kaggle/context-dataset/*.jsonl
 vouch/checkpoints/
 kaggle/.watcher-state.json
+sft-v5-wire.jsonl
