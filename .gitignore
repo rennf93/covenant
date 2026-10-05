@@ -24,3 +24,4 @@ kaggle/context-dataset/*.jsonl
 vouch/checkpoints/
 kaggle/.watcher-state.json
 sft-v5-wire.jsonl
+kaggle/code-dataset/
