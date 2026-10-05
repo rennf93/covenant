@@ -80,31 +80,43 @@ def main() -> None:
     # the laya package is not in the Kaggle image; internet is required
     run([sys.executable, "-m", "pip", "install", "-q", "laya==0.3.20"])
 
-    # self-test: proves CUDA + fp16 autocast + data + script before the long run
-    run(
-        [
-            sys.executable,
-            script,
-            "--data",
-            data,
-            "--out",
-            WORK / "selftest",
-            "--epochs",
-            "1",
-            "--max-rows",
-            "600",
-            "--batch-states",
-            "8",
-            "--grad-accum",
-            "4",
-            "--amp",
-            "--save-every",
-            "0",
-            "--device",
-            "cuda",
-        ]
-    )
-    print("\n=== self-test PASSED: cuda + fp16 + data all good; starting the main run ===")
+    # self-test: proves CUDA + fp16 autocast + data + script before the long
+    # run. Wire v2 states are ~2.6x longer than v1's, so batch 8 can OOM on
+    # the T4's 14.5GB during the first encoder pass: walk the batch down
+    # until one fits, and remember it for the main run.
+    selftest_batch = None
+    for batch in (8, 4, 2):
+        try:
+            run(
+                [
+                    sys.executable,
+                    script,
+                    "--data",
+                    data,
+                    "--out",
+                    WORK / "selftest",
+                    "--epochs",
+                    "1",
+                    "--max-rows",
+                    "600",
+                    "--batch-states",
+                    str(batch),
+                    "--grad-accum",
+                    str(32 // batch),
+                    "--amp",
+                    "--save-every",
+                    "0",
+                    "--device",
+                    "cuda",
+                ]
+            )
+            selftest_batch = batch
+            break
+        except SystemExit as e:
+            print(f"\n=== self-test OOM/failed at batch {batch} ({e}); trying smaller ===")
+    if selftest_batch is None:
+        raise SystemExit("self-test failed at every batch size; environment problem")
+    print(f"\n=== self-test PASSED at batch {selftest_batch}; starting the main run ===")
 
     # auto-resume: a prior session's output may be attached as input
     DATA_OUT.mkdir(parents=True, exist_ok=True)
@@ -115,10 +127,10 @@ def main() -> None:
     else:
         print("no prior resume.pt found - starting fresh")
 
-    # Main run. Attempt 1 at batch 16 (fastest if it fits the T4). On OOM it
-    # retries ONCE at the proven batch 8 with --resume: the trainer wrote
-    # resume.pt every 200 steps, so at most ~30 min of work is redone. A
-    # 12h session kill is handled OUTSIDE (Save Version + re-attach).
+    # Main run. Effective batch stays 32 via grad-accum as the per-step batch
+    # walks down on OOM (16x2, 8x4, 4x8, 2x16). --resume keeps at most ~30
+    # min of work redone; a 12h session kill is handled OUTSIDE (Save
+    # Version + re-attach).
     main_base = [
         sys.executable,
         script,
@@ -135,14 +147,17 @@ def main() -> None:
         "--device",
         "cuda",
     ]
-    try:
-        run(main_base + ["--batch-states", "16", "--grad-accum", "2"])
-    except SystemExit as e:
-        print(
-            f"\n=== main run attempt 1 failed ({e}); retrying at batch 8 with resume ===",
-            flush=True,
-        )
-        run(main_base + ["--batch-states", "8", "--grad-accum", "4"])
+    main_batches = [max(16, selftest_batch), 8, 4, 2]
+    seen = set()
+    for batch in main_batches:
+        if batch in seen:
+            continue
+        seen.add(batch)
+        try:
+            run(main_base + ["--batch-states", str(batch), "--grad-accum", str(32 // batch)])
+            break
+        except SystemExit as e:
+            print(f"\n=== main run failed at batch {batch} ({e}); retrying smaller ===", flush=True)
 
     print("\n=== DONE. refit temperatures and files: ===")
     import json
